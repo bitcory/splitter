@@ -512,12 +512,22 @@ function App() {
     setSelectedTextIndex(null)
   }
 
+  // 폰트 로드 카운터 (폰트 로드 시 리렌더 트리거용)
+  const [fontLoadTrigger, setFontLoadTrigger] = useState(0)
+
   // 선택된 텍스트 업데이트
   const updateSelectedText = (updates) => {
     if (selectedTextIndex === null) return
     const newOverlays = [...textOverlays]
     newOverlays[selectedTextIndex] = { ...newOverlays[selectedTextIndex], ...updates }
     setTextOverlays(newOverlays)
+
+    // 폰트 변경 시 폰트 로드 대기 후 다시 그리기
+    if (updates.fontFamily) {
+      document.fonts.ready.then(() => {
+        setFontLoadTrigger(prev => prev + 1)
+      })
+    }
   }
 
   // 캔버스에 텍스트 그리기
@@ -648,7 +658,7 @@ function App() {
         })
       }
     }
-  }, [image, imageSize, splitLines, isTrimming, trimArea, appliedTrim, margin, textOverlays, selectedTextIndex])
+  }, [image, imageSize, splitLines, isTrimming, trimArea, appliedTrim, margin, textOverlays, selectedTextIndex, fontLoadTrigger])
 
   // 분할된 이미지 조각들 생성
   const splitPieces = useMemo(() => {
@@ -722,7 +732,7 @@ function App() {
     }
 
     return pieces
-  }, [image, imageSize, splitLines, appliedTrim, margin, outputFormat, quality, textOverlays])
+  }, [image, imageSize, splitLines, appliedTrim, margin, outputFormat, quality, textOverlays, fontLoadTrigger])
 
   // 개별 다운로드
   const downloadPiece = (piece) => {
