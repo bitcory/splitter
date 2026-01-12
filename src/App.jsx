@@ -438,11 +438,26 @@ function App() {
     if (textDragState) {
       const dx = coords.x - textDragState.startCoords.x
       const dy = coords.y - textDragState.startCoords.y
+      let newX = Math.max(0, Math.min(currentWidth, textDragState.startPos.x + dx))
+      let newY = Math.max(0, Math.min(currentHeight, textDragState.startPos.y + dy))
+
+      // 중앙 스냅 기능 (30px 범위 내에서 스냅)
+      const centerX = currentWidth / 2
+      const centerY = currentHeight / 2
+      const snapThreshold = 30
+
+      if (Math.abs(newX - centerX) < snapThreshold) {
+        newX = centerX
+      }
+      if (Math.abs(newY - centerY) < snapThreshold) {
+        newY = centerY
+      }
+
       const newOverlays = [...textOverlays]
       newOverlays[textDragState.index] = {
         ...newOverlays[textDragState.index],
-        x: Math.max(0, Math.min(currentWidth, textDragState.startPos.x + dx)),
-        y: Math.max(0, Math.min(currentHeight, textDragState.startPos.y + dy))
+        x: newX,
+        y: newY
       }
       setTextOverlays(newOverlays)
       return
