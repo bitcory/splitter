@@ -65,7 +65,7 @@ function App() {
   const [isEqualMode, setIsEqualMode] = useState(true)
   const [splitLines, setSplitLines] = useState({ vertical: [], horizontal: [] })
 
-  // 트리밍 설정
+  // 임의수정 설정
   const [isTrimming, setIsTrimming] = useState(false)
   const [trimArea, setTrimArea] = useState(null)
   const [appliedTrim, setAppliedTrim] = useState(null)
@@ -371,7 +371,7 @@ function App() {
 
     setSelectedTextIndex(null)
 
-    // 트리밍 모드
+    // 임의수정 모드
     if (isTrimming) {
       if (trimArea) {
         const handle = getTrimHandle(coords, trimArea)
@@ -1015,9 +1015,9 @@ function App() {
             </div>
           </div>
 
-          {/* STEP 1: 트리밍 */}
+          {/* STEP 1: 임의수정 */}
           <div className="setting-group">
-            <label className="setting-label">STEP 1: 트리밍</label>
+            <label className="setting-label">STEP 1: 임의수정</label>
             <div className="trim-buttons">
               <button
                 className={`trim-btn ${isTrimming ? 'active' : ''}`}
@@ -1041,7 +1041,7 @@ function App() {
                 해제
               </button>
             </div>
-            <p className="setting-hint">"선택"을 클릭하여 트리밍 범위를 드래그</p>
+            <p className="setting-hint">"선택"을 클릭하여 임의수정 범위를 드래그</p>
           </div>
 
           {/* STEP 2: 텍스트 추가 */}
