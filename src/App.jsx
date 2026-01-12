@@ -491,11 +491,11 @@ function App() {
       content: newTextInput,
       x: currentWidth / 2,
       y: currentHeight / 2,
-      fontSize: Math.max(24, Math.floor(currentWidth / 20)),
-      fontFamily: 'Arial',
+      fontSize: 250,
+      fontFamily: 'Hakgyoansim Poster',
       color: '#ffffff',
       strokeColor: '#000000',
-      strokeWidth: 2,
+      strokeWidth: 10,
       hasStroke: true
     }
     setTextOverlays([...textOverlays, newText])
