@@ -177,88 +177,72 @@ function App() {
     }
   }
 
-  // 세로 분할선 추가
+  // 세로 분할선 추가 (등분 배치)
   const addVerticalLine = () => {
     const currentWidth = appliedTrim ? appliedTrim.width : imageSize.width
-    const existingLines = [...splitLines.vertical].sort((a, b) => a - b)
-    let newLinePos
+    const newCount = splitLines.vertical.length + 1
+    const newLines = []
 
-    if (existingLines.length === 0) {
-      newLinePos = currentWidth / 2
-    } else {
-      // 가장 넓은 간격 찾아서 중간에 추가
-      let maxGap = existingLines[0]
-      let maxGapStart = 0
-      for (let i = 0; i <= existingLines.length; i++) {
-        const start = i === 0 ? 0 : existingLines[i - 1]
-        const end = i === existingLines.length ? currentWidth : existingLines[i]
-        const gap = end - start
-        if (gap > maxGap) {
-          maxGap = gap
-          maxGapStart = start
-        }
-      }
-      newLinePos = maxGapStart + maxGap / 2
+    // 새로운 선 개수에 맞게 등분 재배치
+    for (let i = 1; i <= newCount; i++) {
+      newLines.push((currentWidth / (newCount + 1)) * i)
     }
-
-    // 범위 내로 제한
-    newLinePos = Math.max(10, Math.min(currentWidth - 10, newLinePos))
 
     setSplitLines(prev => ({
       ...prev,
-      vertical: [...prev.vertical, newLinePos]
+      vertical: newLines
     }))
   }
 
-  // 가로 분할선 추가
+  // 가로 분할선 추가 (등분 배치)
   const addHorizontalLine = () => {
     const currentHeight = appliedTrim ? appliedTrim.height : imageSize.height
-    const existingLines = [...splitLines.horizontal].sort((a, b) => a - b)
-    let newLinePos
+    const newCount = splitLines.horizontal.length + 1
+    const newLines = []
 
-    if (existingLines.length === 0) {
-      newLinePos = currentHeight / 2
-    } else {
-      // 가장 넓은 간격 찾아서 중간에 추가
-      let maxGap = existingLines[0]
-      let maxGapStart = 0
-      for (let i = 0; i <= existingLines.length; i++) {
-        const start = i === 0 ? 0 : existingLines[i - 1]
-        const end = i === existingLines.length ? currentHeight : existingLines[i]
-        const gap = end - start
-        if (gap > maxGap) {
-          maxGap = gap
-          maxGapStart = start
-        }
-      }
-      newLinePos = maxGapStart + maxGap / 2
+    // 새로운 선 개수에 맞게 등분 재배치
+    for (let i = 1; i <= newCount; i++) {
+      newLines.push((currentHeight / (newCount + 1)) * i)
     }
-
-    // 범위 내로 제한
-    newLinePos = Math.max(10, Math.min(currentHeight - 10, newLinePos))
 
     setSplitLines(prev => ({
       ...prev,
-      horizontal: [...prev.horizontal, newLinePos]
+      horizontal: newLines
     }))
   }
 
-  // 마지막 세로 분할선 삭제
+  // 세로 분할선 삭제 (등분 재배치)
   const removeVerticalLine = () => {
     if (splitLines.vertical.length > 0) {
+      const currentWidth = appliedTrim ? appliedTrim.width : imageSize.width
+      const newCount = splitLines.vertical.length - 1
+      const newLines = []
+
+      for (let i = 1; i <= newCount; i++) {
+        newLines.push((currentWidth / (newCount + 1)) * i)
+      }
+
       setSplitLines(prev => ({
         ...prev,
-        vertical: prev.vertical.slice(0, -1)
+        vertical: newLines
       }))
     }
   }
 
-  // 마지막 가로 분할선 삭제
+  // 가로 분할선 삭제 (등분 재배치)
   const removeHorizontalLine = () => {
     if (splitLines.horizontal.length > 0) {
+      const currentHeight = appliedTrim ? appliedTrim.height : imageSize.height
+      const newCount = splitLines.horizontal.length - 1
+      const newLines = []
+
+      for (let i = 1; i <= newCount; i++) {
+        newLines.push((currentHeight / (newCount + 1)) * i)
+      }
+
       setSplitLines(prev => ({
         ...prev,
-        horizontal: prev.horizontal.slice(0, -1)
+        horizontal: newLines
       }))
     }
   }
