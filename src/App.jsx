@@ -923,8 +923,8 @@ function App() {
       <header className="header">
         <div className="header-content">
           <div className="header-title">
+            <img src="/logo.svg" alt="Logo" className="header-logo" />
             <h1>IMAGE SPLITTER</h1>
-            <p>이미지를 분할하는 도구</p>
           </div>
         </div>
       </header>

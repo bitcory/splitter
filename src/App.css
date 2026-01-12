@@ -22,7 +22,19 @@
 .header-content {
   max-width: 1400px;
   margin: 0 auto;
-  text-align: center;
+  display: flex;
+  justify-content: center;
+}
+
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.header-logo {
+  height: 32px;
+  width: auto;
 }
 
 .header-title h1 {
@@ -30,12 +42,6 @@
   font-weight: 300;
   color: #fff;
   letter-spacing: 6px;
-  margin-bottom: 0.25rem;
-}
-
-.header-title p {
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 0.75rem;
 }
 
 /* 메인 컨텐츠 */
