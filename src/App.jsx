@@ -40,12 +40,14 @@ const FONTS = [
 // 분할 모드 정의
 const SPLIT_MODES = {
   CROSS_4: { id: 'cross4', name: '십자', icon: '┼', cols: 2, rows: 2 },
+  GRID_3x3: { id: 'grid3x3', name: '3×3', icon: '▦', cols: 3, rows: 3 },
   VERTICAL_2: { id: 'vertical2', name: '세로 2분할', icon: '│', cols: 2, rows: 1 },
   VERTICAL_3: { id: 'vertical3', name: '세로 3분할', icon: '┆', cols: 3, rows: 1 },
   VERTICAL_4: { id: 'vertical4', name: '세로 4분할', icon: '┊', cols: 4, rows: 1 },
   HORIZONTAL_2: { id: 'horizontal2', name: '가로 2분할', icon: '─', cols: 1, rows: 2 },
   HORIZONTAL_3: { id: 'horizontal3', name: '가로 3분할', icon: '┄', cols: 1, rows: 3 },
   HORIZONTAL_4: { id: 'horizontal4', name: '가로 4분할', icon: '┈', cols: 1, rows: 4 },
+  CUSTOM: { id: 'custom', name: '사용자 정의', icon: '✎', cols: 1, rows: 1, custom: true },
 }
 
 function App() {
@@ -161,7 +163,88 @@ function App() {
     if (imageSize.width > 0) {
       const targetWidth = appliedTrim ? appliedTrim.width : imageSize.width
       const targetHeight = appliedTrim ? appliedTrim.height : imageSize.height
-      initializeSplitLines(mode, targetWidth, targetHeight)
+      if (mode.custom) {
+        // 사용자 정의 모드: 분할선 초기화 (빈 상태로)
+        setSplitLines({ vertical: [], horizontal: [] })
+      } else {
+        initializeSplitLines(mode, targetWidth, targetHeight)
+      }
+    }
+  }
+
+  // 세로 분할선 추가
+  const addVerticalLine = () => {
+    const currentWidth = appliedTrim ? appliedTrim.width : imageSize.width
+    const existingLines = splitLines.vertical.sort((a, b) => a - b)
+    let newLinePos
+
+    if (existingLines.length === 0) {
+      newLinePos = currentWidth / 2
+    } else {
+      // 가장 넓은 간격 찾아서 중간에 추가
+      let maxGap = existingLines[0]
+      let maxGapStart = 0
+      for (let i = 0; i < existingLines.length; i++) {
+        const gap = (existingLines[i + 1] || currentWidth) - existingLines[i]
+        if (gap > maxGap) {
+          maxGap = gap
+          maxGapStart = existingLines[i]
+        }
+      }
+      newLinePos = maxGapStart + maxGap / 2
+    }
+
+    setSplitLines(prev => ({
+      ...prev,
+      vertical: [...prev.vertical, newLinePos]
+    }))
+  }
+
+  // 가로 분할선 추가
+  const addHorizontalLine = () => {
+    const currentHeight = appliedTrim ? appliedTrim.height : imageSize.height
+    const existingLines = splitLines.horizontal.sort((a, b) => a - b)
+    let newLinePos
+
+    if (existingLines.length === 0) {
+      newLinePos = currentHeight / 2
+    } else {
+      // 가장 넓은 간격 찾아서 중간에 추가
+      let maxGap = existingLines[0]
+      let maxGapStart = 0
+      for (let i = 0; i < existingLines.length; i++) {
+        const gap = (existingLines[i + 1] || currentHeight) - existingLines[i]
+        if (gap > maxGap) {
+          maxGap = gap
+          maxGapStart = existingLines[i]
+        }
+      }
+      newLinePos = maxGapStart + maxGap / 2
+    }
+
+    setSplitLines(prev => ({
+      ...prev,
+      horizontal: [...prev.horizontal, newLinePos]
+    }))
+  }
+
+  // 마지막 세로 분할선 삭제
+  const removeVerticalLine = () => {
+    if (splitLines.vertical.length > 0) {
+      setSplitLines(prev => ({
+        ...prev,
+        vertical: prev.vertical.slice(0, -1)
+      }))
+    }
+  }
+
+  // 마지막 가로 분할선 삭제
+  const removeHorizontalLine = () => {
+    if (splitLines.horizontal.length > 0) {
+      setSplitLines(prev => ({
+        ...prev,
+        horizontal: prev.horizontal.slice(0, -1)
+      }))
     }
   }
 
@@ -307,8 +390,8 @@ function App() {
       return
     }
 
-    // 자유 모드에서 분할선 드래그
-    if (!isEqualMode) {
+    // 자유 모드 또는 사용자 정의 모드에서 분할선 드래그
+    if (!isEqualMode || splitMode.custom) {
       const currentWidth = appliedTrim ? appliedTrim.width : imageSize.width
       const threshold = 10 * (currentWidth / canvas.getBoundingClientRect().width)
 
@@ -392,7 +475,7 @@ function App() {
       return
     }
 
-    if (dragLineIndex !== null && !isEqualMode) {
+    if (dragLineIndex !== null && (!isEqualMode || splitMode.custom)) {
       const newLines = { ...splitLines }
       if (dragLineType === 'vertical') {
         newLines.vertical = [...splitLines.vertical]
@@ -1049,29 +1132,49 @@ function App() {
           {/* STEP 3: 조정 모드 */}
           <div className="setting-group">
             <label className="setting-label">STEP 3: 분할선 조정</label>
-            <div className="mode-toggle">
-              <button
-                className={`toggle-btn ${isEqualMode ? 'active' : ''}`}
-                onClick={() => {
-                  setIsEqualMode(true)
-                  if (image) {
-                    const w = appliedTrim ? appliedTrim.width : imageSize.width
-                    const h = appliedTrim ? appliedTrim.height : imageSize.height
-                    initializeSplitLines(splitMode, w, h)
-                  }
-                }}
-              >
-                등분
-              </button>
-              <button
-                className={`toggle-btn ${!isEqualMode ? 'active' : ''}`}
-                onClick={() => setIsEqualMode(false)}
-              >
-                자유
-              </button>
-            </div>
-            {!isEqualMode && (
-              <p className="setting-hint">분할선을 드래그하여 위치 조정</p>
+            {splitMode.custom ? (
+              <>
+                <div className="custom-lines-control">
+                  <div className="line-control-row">
+                    <span className="line-label">세로선 ({splitLines.vertical.length})</span>
+                    <button className="line-btn" onClick={addVerticalLine} disabled={!image}>+</button>
+                    <button className="line-btn" onClick={removeVerticalLine} disabled={!image || splitLines.vertical.length === 0}>−</button>
+                  </div>
+                  <div className="line-control-row">
+                    <span className="line-label">가로선 ({splitLines.horizontal.length})</span>
+                    <button className="line-btn" onClick={addHorizontalLine} disabled={!image}>+</button>
+                    <button className="line-btn" onClick={removeHorizontalLine} disabled={!image || splitLines.horizontal.length === 0}>−</button>
+                  </div>
+                </div>
+                <p className="setting-hint">분할선을 드래그하여 위치 조정</p>
+              </>
+            ) : (
+              <>
+                <div className="mode-toggle">
+                  <button
+                    className={`toggle-btn ${isEqualMode ? 'active' : ''}`}
+                    onClick={() => {
+                      setIsEqualMode(true)
+                      if (image) {
+                        const w = appliedTrim ? appliedTrim.width : imageSize.width
+                        const h = appliedTrim ? appliedTrim.height : imageSize.height
+                        initializeSplitLines(splitMode, w, h)
+                      }
+                    }}
+                  >
+                    등분
+                  </button>
+                  <button
+                    className={`toggle-btn ${!isEqualMode ? 'active' : ''}`}
+                    onClick={() => setIsEqualMode(false)}
+                  >
+                    자유
+                  </button>
+                </div>
+                {!isEqualMode && (
+                  <p className="setting-hint">분할선을 드래그하여 위치 조정</p>
+                )}
+              </>
             )}
           </div>
 
