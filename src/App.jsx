@@ -182,13 +182,14 @@ function App() {
 
   // 텍스트 바운딩 박스 계산
   const getTextBounds = (text, ctx) => {
-    ctx.font = `${text.fontSize}px ${text.fontFamily}`
+    const fontSize = text.fontSize || 12
+    ctx.font = `${fontSize}px ${text.fontFamily}`
     const metrics = ctx.measureText(text.content)
     return {
       x: text.x,
-      y: text.y - text.fontSize,
+      y: text.y - fontSize,
       width: metrics.width,
-      height: text.fontSize
+      height: fontSize
     }
   }
 
@@ -522,7 +523,8 @@ function App() {
   // 캔버스에 텍스트 그리기
   const drawTextOverlays = (ctx, offsetX = 0, offsetY = 0, drawHandles = true) => {
     textOverlays.forEach((text, index) => {
-      ctx.font = `${text.fontSize}px ${text.fontFamily}`
+      const fontSize = text.fontSize || 12
+      ctx.font = `${fontSize}px ${text.fontFamily}`
       ctx.textBaseline = 'bottom'
 
       // 외곽선
@@ -540,9 +542,9 @@ function App() {
       if (index === selectedTextIndex && drawHandles) {
         const metrics = ctx.measureText(text.content)
         const boxX = text.x - offsetX - 5
-        const boxY = text.y - offsetY - text.fontSize - 5
+        const boxY = text.y - offsetY - fontSize - 5
         const boxW = metrics.width + 10
-        const boxH = text.fontSize + 10
+        const boxH = fontSize + 10
 
         // 선택 박스
         ctx.strokeStyle = '#4fc3f7'
@@ -685,6 +687,7 @@ function App() {
           textOverlays.forEach((text) => {
             const textX = text.x - x
             const textY = text.y - y
+            const fontSize = text.fontSize || 12
 
             // 클리핑 영역 설정 (조각 경계 내에서만 텍스트 표시)
             pieceCtx.save()
@@ -692,7 +695,7 @@ function App() {
             pieceCtx.rect(0, 0, w, h)
             pieceCtx.clip()
 
-            pieceCtx.font = `${text.fontSize}px ${text.fontFamily}`
+            pieceCtx.font = `${fontSize}px ${text.fontFamily}`
             pieceCtx.textBaseline = 'bottom'
 
             if (text.hasStroke && text.strokeWidth > 0) {
@@ -964,15 +967,14 @@ function App() {
                 <div className="text-editor-row">
                   <label>크기</label>
                   <input
-                    type="number"
-                    min="12"
+                    type="text"
+                    inputMode="numeric"
                     value={selectedText.fontSize}
                     onChange={(e) => {
                       const val = e.target.value
-                      if (val === '') {
-                        updateSelectedText({ fontSize: 12 })
-                      } else {
-                        updateSelectedText({ fontSize: Number(val) || 12 })
+                      // 숫자만 허용
+                      if (val === '' || /^\d+$/.test(val)) {
+                        updateSelectedText({ fontSize: val === '' ? '' : Number(val) })
                       }
                     }}
                     onBlur={(e) => {
