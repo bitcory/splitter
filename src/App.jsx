@@ -920,14 +920,12 @@ function App() {
     <div className="app">
       {/* 헤더 */}
       <header className="header">
-        <div className="logo">
-          <img src="/logo.svg" alt="AI CREW - Image Splitter" className="logo-img" />
+        <div className="header-content">
+          <div className="logo">
+            <img src="/logo.svg" alt="AITOOLB - Image Splitter" className="logo-img" />
+            <span className="logo-text">AITOOLB</span>
+          </div>
         </div>
-        <div className="header-title">
-          <h1>IMAGE SPLITTER</h1>
-          <p>이미지를 분할하는 도구</p>
-        </div>
-        <div className="header-spacer"></div>
       </header>
 
       {/* 메인 컨텐츠 */}
