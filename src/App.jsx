@@ -436,21 +436,35 @@ function App() {
 
     // 텍스트 드래그
     if (textDragState) {
+      const canvas = canvasRef.current
+      const ctx = canvas.getContext('2d')
+      const text = textOverlays[textDragState.index]
+      const fontSize = text.fontSize || 12
+      ctx.font = `${fontSize}px ${text.fontFamily}`
+      const metrics = ctx.measureText(text.content)
+      const textBoxWidth = metrics.width
+      const textBoxHeight = fontSize
+
       const dx = coords.x - textDragState.startCoords.x
       const dy = coords.y - textDragState.startCoords.y
       let newX = Math.max(0, Math.min(currentWidth, textDragState.startPos.x + dx))
       let newY = Math.max(0, Math.min(currentHeight, textDragState.startPos.y + dy))
 
-      // 중앙 스냅 기능 (30px 범위 내에서 스냅)
-      const centerX = currentWidth / 2
-      const centerY = currentHeight / 2
+      // 텍스트 박스 중앙 계산 (text.x는 텍스트 시작점, text.y는 baseline)
+      const textBoxCenterX = newX + textBoxWidth / 2
+      const textBoxCenterY = newY - textBoxHeight / 2
+
+      // 이미지 중앙
+      const imageCenterX = currentWidth / 2
+      const imageCenterY = currentHeight / 2
       const snapThreshold = 30
 
-      if (Math.abs(newX - centerX) < snapThreshold) {
-        newX = centerX
+      // 텍스트 박스 중앙이 이미지 중앙에 가까우면 스냅
+      if (Math.abs(textBoxCenterX - imageCenterX) < snapThreshold) {
+        newX = imageCenterX - textBoxWidth / 2
       }
-      if (Math.abs(newY - centerY) < snapThreshold) {
-        newY = centerY
+      if (Math.abs(textBoxCenterY - imageCenterY) < snapThreshold) {
+        newY = imageCenterY + textBoxHeight / 2
       }
 
       const newOverlays = [...textOverlays]
@@ -715,27 +729,6 @@ function App() {
     // 텍스트 오버레이 그리기
     drawTextOverlays(ctx)
 
-    // 텍스트 선택 시 중앙 가이드 선 표시
-    if (selectedTextIndex !== null) {
-      ctx.setLineDash([10, 10])
-      ctx.strokeStyle = '#00ff00'
-      ctx.lineWidth = 2
-
-      // 세로 중앙선
-      ctx.beginPath()
-      ctx.moveTo(drawWidth / 2, 0)
-      ctx.lineTo(drawWidth / 2, drawHeight)
-      ctx.stroke()
-
-      // 가로 중앙선
-      ctx.beginPath()
-      ctx.moveTo(0, drawHeight / 2)
-      ctx.lineTo(drawWidth, drawHeight / 2)
-      ctx.stroke()
-
-      ctx.setLineDash([])
-    }
-
     if (isTrimming && !appliedTrim) {
       ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'
       ctx.fillRect(0, 0, imageSize.width, imageSize.height)
@@ -777,6 +770,44 @@ function App() {
         ctx.lineTo(drawWidth, y)
         ctx.stroke()
       })
+
+      // 텍스트가 정중앙에 맞았을 때 가이드 선 표시 (분할선 위에)
+      if (selectedTextIndex !== null && textOverlays[selectedTextIndex]) {
+        const text = textOverlays[selectedTextIndex]
+        const fontSize = text.fontSize || 12
+        ctx.font = `${fontSize}px ${text.fontFamily}`
+        const metrics = ctx.measureText(text.content)
+        const textBoxWidth = metrics.width
+        const textBoxHeight = fontSize
+
+        const textBoxCenterX = text.x + textBoxWidth / 2
+        const textBoxCenterY = text.y - textBoxHeight / 2
+
+        const imageCenterX = drawWidth / 2
+        const imageCenterY = drawHeight / 2
+        const tolerance = 1
+
+        const isHorizontallyCentered = Math.abs(textBoxCenterX - imageCenterX) < tolerance
+        const isVerticallyCentered = Math.abs(textBoxCenterY - imageCenterY) < tolerance
+
+        ctx.setLineDash([])
+        ctx.strokeStyle = '#00ff00'
+        ctx.lineWidth = 6
+
+        if (isHorizontallyCentered) {
+          ctx.beginPath()
+          ctx.moveTo(drawWidth / 2, 0)
+          ctx.lineTo(drawWidth / 2, drawHeight)
+          ctx.stroke()
+        }
+
+        if (isVerticallyCentered) {
+          ctx.beginPath()
+          ctx.moveTo(0, drawHeight / 2)
+          ctx.lineTo(drawWidth, drawHeight / 2)
+          ctx.stroke()
+        }
+      }
     }
   }, [image, imageSize, splitLines, isTrimming, trimArea, appliedTrim, textOverlays, selectedTextIndex, fontLoadTrigger])
 
