@@ -892,6 +892,7 @@ function App() {
           <div className="header-title">
             <img src="/logo.svg" alt="Logo" className="header-logo" />
             <h1>IMAGE SPLITTER</h1>
+            <span className="header-credit">made by ATB</span>
           </div>
         </div>
       </header>

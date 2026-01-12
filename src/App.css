@@ -44,6 +44,14 @@
   letter-spacing: 6px;
 }
 
+.header-credit {
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.4);
+  margin-left: 0.5rem;
+  align-self: flex-end;
+  margin-bottom: 0.2rem;
+}
+
 /* 메인 컨텐츠 */
 .main {
   display: flex;
