@@ -35,6 +35,12 @@ function App() {
   const [outputFormat, setOutputFormat] = useState('jpeg')
   const [quality, setQuality] = useState(90)
 
+  // 텍스트 오버레이 설정
+  const [textOverlays, setTextOverlays] = useState([])
+  const [selectedTextIndex, setSelectedTextIndex] = useState(null)
+  const [isAddingText, setIsAddingText] = useState(false)
+  const [newTextInput, setNewTextInput] = useState('')
+
   // refs
   const canvasRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -45,6 +51,7 @@ function App() {
   const [dragLineIndex, setDragLineIndex] = useState(null)
   const [dragLineType, setDragLineType] = useState(null)
   const [trimDragState, setTrimDragState] = useState(null)
+  const [textDragState, setTextDragState] = useState(null)
 
   // 분할선 초기화 (등분 모드)
   const initializeSplitLines = useCallback((mode, width, height) => {
@@ -74,6 +81,7 @@ function App() {
         initializeSplitLines(splitMode, img.width, img.height)
         setAppliedTrim(null)
         setTrimArea(null)
+        setTextOverlays([])
       }
       img.src = e.target.result
     }
@@ -136,11 +144,49 @@ function App() {
     }
   }
 
+  // 텍스트 클릭 체크
+  const getClickedTextIndex = (coords) => {
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext('2d')
+
+    for (let i = textOverlays.length - 1; i >= 0; i--) {
+      const text = textOverlays[i]
+      ctx.font = `${text.fontSize}px ${text.fontFamily}`
+      const metrics = ctx.measureText(text.content)
+      const textWidth = metrics.width
+      const textHeight = text.fontSize
+
+      if (
+        coords.x >= text.x - 10 &&
+        coords.x <= text.x + textWidth + 10 &&
+        coords.y >= text.y - textHeight - 10 &&
+        coords.y <= text.y + 10
+      ) {
+        return i
+      }
+    }
+    return null
+  }
+
   // 마우스 다운 핸들러
   const handleMouseDown = (e) => {
     if (!image) return
     const canvas = canvasRef.current
     const coords = getCanvasCoords(e, canvas)
+
+    // 텍스트 클릭 체크
+    const clickedTextIdx = getClickedTextIndex(coords)
+    if (clickedTextIdx !== null) {
+      setSelectedTextIndex(clickedTextIdx)
+      setTextDragState({
+        index: clickedTextIdx,
+        startCoords: coords,
+        startPos: { x: textOverlays[clickedTextIdx].x, y: textOverlays[clickedTextIdx].y }
+      })
+      return
+    }
+
+    setSelectedTextIndex(null)
 
     // 트리밍 모드
     if (isTrimming) {
@@ -191,6 +237,20 @@ function App() {
     const currentWidth = appliedTrim ? appliedTrim.width : imageSize.width
     const currentHeight = appliedTrim ? appliedTrim.height : imageSize.height
 
+    // 텍스트 드래그
+    if (textDragState) {
+      const dx = coords.x - textDragState.startCoords.x
+      const dy = coords.y - textDragState.startCoords.y
+      const newOverlays = [...textOverlays]
+      newOverlays[textDragState.index] = {
+        ...newOverlays[textDragState.index],
+        x: Math.max(0, Math.min(currentWidth, textDragState.startPos.x + dx)),
+        y: Math.max(0, Math.min(currentHeight, textDragState.startPos.y + dy))
+      }
+      setTextOverlays(newOverlays)
+      return
+    }
+
     if (trimDragState) {
       if (trimDragState.type === 'new') {
         const newArea = {
@@ -232,6 +292,7 @@ function App() {
     setDragLineIndex(null)
     setDragLineType(null)
     setTrimDragState(null)
+    setTextDragState(null)
   }
 
   const getTrimHandle = (coords, area) => {
@@ -302,6 +363,79 @@ function App() {
     }
   }
 
+  // 텍스트 추가
+  const addTextOverlay = () => {
+    if (!newTextInput.trim()) return
+    const currentWidth = appliedTrim ? appliedTrim.width : imageSize.width
+    const currentHeight = appliedTrim ? appliedTrim.height : imageSize.height
+
+    const newText = {
+      content: newTextInput,
+      x: currentWidth / 2,
+      y: currentHeight / 2,
+      fontSize: Math.max(24, Math.floor(currentWidth / 20)),
+      fontFamily: 'Arial',
+      color: '#ffffff',
+      strokeColor: '#000000',
+      strokeWidth: 2,
+      hasStroke: true
+    }
+    setTextOverlays([...textOverlays, newText])
+    setNewTextInput('')
+    setIsAddingText(false)
+    setSelectedTextIndex(textOverlays.length)
+  }
+
+  // 텍스트 삭제
+  const deleteSelectedText = () => {
+    if (selectedTextIndex === null) return
+    const newOverlays = textOverlays.filter((_, i) => i !== selectedTextIndex)
+    setTextOverlays(newOverlays)
+    setSelectedTextIndex(null)
+  }
+
+  // 선택된 텍스트 업데이트
+  const updateSelectedText = (updates) => {
+    if (selectedTextIndex === null) return
+    const newOverlays = [...textOverlays]
+    newOverlays[selectedTextIndex] = { ...newOverlays[selectedTextIndex], ...updates }
+    setTextOverlays(newOverlays)
+  }
+
+  // 캔버스에 텍스트 그리기
+  const drawTextOverlays = (ctx, offsetX = 0, offsetY = 0) => {
+    textOverlays.forEach((text, index) => {
+      ctx.font = `${text.fontSize}px ${text.fontFamily}`
+      ctx.textBaseline = 'bottom'
+
+      // 외곽선
+      if (text.hasStroke && text.strokeWidth > 0) {
+        ctx.strokeStyle = text.strokeColor
+        ctx.lineWidth = text.strokeWidth
+        ctx.strokeText(text.content, text.x - offsetX, text.y - offsetY)
+      }
+
+      // 텍스트
+      ctx.fillStyle = text.color
+      ctx.fillText(text.content, text.x - offsetX, text.y - offsetY)
+
+      // 선택된 텍스트 표시
+      if (index === selectedTextIndex) {
+        const metrics = ctx.measureText(text.content)
+        ctx.strokeStyle = '#4fc3f7'
+        ctx.lineWidth = 2
+        ctx.setLineDash([5, 5])
+        ctx.strokeRect(
+          text.x - offsetX - 5,
+          text.y - offsetY - text.fontSize - 5,
+          metrics.width + 10,
+          text.fontSize + 10
+        )
+        ctx.setLineDash([])
+      }
+    })
+  }
+
   // 캔버스 그리기
   useEffect(() => {
     if (!image || !canvasRef.current) return
@@ -320,6 +454,9 @@ function App() {
     } else {
       ctx.drawImage(image, 0, 0)
     }
+
+    // 텍스트 오버레이 그리기
+    drawTextOverlays(ctx)
 
     if (isTrimming && !appliedTrim) {
       ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'
@@ -372,7 +509,7 @@ function App() {
         })
       }
     }
-  }, [image, imageSize, splitLines, isTrimming, trimArea, appliedTrim, margin])
+  }, [image, imageSize, splitLines, isTrimming, trimArea, appliedTrim, margin, textOverlays, selectedTextIndex])
 
   // 분할된 이미지 조각들 생성
   const splitPieces = useMemo(() => {
@@ -407,6 +544,27 @@ function App() {
           const pieceCtx = pieceCanvas.getContext('2d')
           pieceCtx.drawImage(image, sourceX + x, sourceY + y, w, h, 0, 0, w, h)
 
+          // 텍스트 오버레이 그리기 (조각 내 위치 조정)
+          textOverlays.forEach((text) => {
+            const textX = text.x - x
+            const textY = text.y - y
+
+            // 텍스트가 이 조각 안에 있는지 확인
+            if (textX > -200 && textX < w + 200 && textY > -text.fontSize && textY < h + text.fontSize) {
+              pieceCtx.font = `${text.fontSize}px ${text.fontFamily}`
+              pieceCtx.textBaseline = 'bottom'
+
+              if (text.hasStroke && text.strokeWidth > 0) {
+                pieceCtx.strokeStyle = text.strokeColor
+                pieceCtx.lineWidth = text.strokeWidth
+                pieceCtx.strokeText(text.content, textX, textY)
+              }
+
+              pieceCtx.fillStyle = text.color
+              pieceCtx.fillText(text.content, textX, textY)
+            }
+          })
+
           pieces.push({
             canvas: pieceCanvas,
             dataUrl: pieceCanvas.toDataURL(`image/${outputFormat}`, quality / 100),
@@ -419,7 +577,7 @@ function App() {
     }
 
     return pieces
-  }, [image, imageSize, splitLines, appliedTrim, margin, outputFormat, quality])
+  }, [image, imageSize, splitLines, appliedTrim, margin, outputFormat, quality, textOverlays])
 
   // 개별 다운로드
   const downloadPiece = (piece) => {
@@ -461,16 +619,14 @@ function App() {
     }
   }, [splitMode])
 
+  const selectedText = selectedTextIndex !== null ? textOverlays[selectedTextIndex] : null
+
   return (
     <div className="app">
       {/* 헤더 */}
       <header className="header">
         <div className="logo">
-          <div className="logo-icon">TB</div>
-          <div className="logo-text">
-            <span className="logo-title">AI CREW</span>
-            <span className="logo-subtitle">TB IMAGE SPLITTER</span>
-          </div>
+          <img src="/logo.svg" alt="AI CREW - Image Splitter" className="logo-img" />
         </div>
       </header>
 
@@ -611,9 +767,95 @@ function App() {
             <p className="setting-hint">"선택"을 클릭하여 트리밍 범위를 드래그</p>
           </div>
 
-          {/* STEP 2: 조정 모드 */}
+          {/* STEP 2: 텍스트 추가 */}
           <div className="setting-group">
-            <label className="setting-label">STEP 2: 분할선 조정</label>
+            <label className="setting-label">STEP 2: 텍스트 추가</label>
+            {isAddingText ? (
+              <div className="text-input-row">
+                <input
+                  type="text"
+                  value={newTextInput}
+                  onChange={(e) => setNewTextInput(e.target.value)}
+                  placeholder="텍스트 입력"
+                  className="text-input"
+                  onKeyDown={(e) => e.key === 'Enter' && addTextOverlay()}
+                  autoFocus
+                />
+                <button className="trim-btn" onClick={addTextOverlay}>추가</button>
+                <button className="trim-btn" onClick={() => setIsAddingText(false)}>취소</button>
+              </div>
+            ) : (
+              <button
+                className="trim-btn full-width"
+                onClick={() => setIsAddingText(true)}
+                disabled={!image}
+              >
+                + 텍스트 추가
+              </button>
+            )}
+
+            {/* 선택된 텍스트 편집 */}
+            {selectedText && (
+              <div className="text-editor">
+                <div className="text-editor-row">
+                  <label>내용</label>
+                  <input
+                    type="text"
+                    value={selectedText.content}
+                    onChange={(e) => updateSelectedText({ content: e.target.value })}
+                    className="text-input"
+                  />
+                </div>
+                <div className="text-editor-row">
+                  <label>크기</label>
+                  <input
+                    type="range"
+                    min="12"
+                    max="200"
+                    value={selectedText.fontSize}
+                    onChange={(e) => updateSelectedText({ fontSize: Number(e.target.value) })}
+                  />
+                  <span>{selectedText.fontSize}px</span>
+                </div>
+                <div className="text-editor-row">
+                  <label>색상</label>
+                  <input
+                    type="color"
+                    value={selectedText.color}
+                    onChange={(e) => updateSelectedText({ color: e.target.value })}
+                  />
+                  <label>외곽선</label>
+                  <input
+                    type="color"
+                    value={selectedText.strokeColor}
+                    onChange={(e) => updateSelectedText({ strokeColor: e.target.value })}
+                  />
+                </div>
+                <div className="text-editor-row">
+                  <label>외곽선 두께</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="10"
+                    value={selectedText.strokeWidth}
+                    onChange={(e) => updateSelectedText({ strokeWidth: Number(e.target.value) })}
+                  />
+                  <span>{selectedText.strokeWidth}px</span>
+                </div>
+                <button className="delete-text-btn" onClick={deleteSelectedText}>
+                  텍스트 삭제
+                </button>
+              </div>
+            )}
+
+            {textOverlays.length > 0 && (
+              <p className="setting-hint">텍스트를 드래그하여 위치 조정</p>
+            )}
+          </div>
+
+          {/* STEP 3: 조정 모드 */}
+          <div className="setting-group">
+            <label className="setting-label">STEP 3: 분할선 조정</label>
             <div className="mode-toggle">
               <button
                 className={`toggle-btn ${isEqualMode ? 'active' : ''}`}
@@ -640,9 +882,9 @@ function App() {
             )}
           </div>
 
-          {/* STEP 3: 마진 */}
+          {/* STEP 4: 마진 */}
           <div className="setting-group">
-            <label className="setting-label">STEP 3: 마진 (분할선 양옆 제거)</label>
+            <label className="setting-label">STEP 4: 마진 (분할선 양옆 제거)</label>
             <div className="margin-control">
               <input
                 type="range"
@@ -664,9 +906,9 @@ function App() {
             </div>
           </div>
 
-          {/* STEP 4: 출력 설정 */}
+          {/* STEP 5: 출력 설정 */}
           <div className="setting-group">
-            <label className="setting-label">STEP 4: 출력 설정</label>
+            <label className="setting-label">STEP 5: 출력 설정</label>
             <div className="format-buttons">
               {['jpeg', 'png', 'webp'].map(format => (
                 <button
@@ -694,7 +936,7 @@ function App() {
 
           {/* 다운로드 버튼 */}
           <div className="setting-group">
-            <label className="setting-label">STEP 5: 다운로드</label>
+            <label className="setting-label">STEP 6: 다운로드</label>
             <div className="download-buttons">
               <button
                 className="download-btn"
