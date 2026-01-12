@@ -225,7 +225,7 @@
 /* 분할 모드 버튼 */
 .split-modes {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 0.5rem;
 }
 

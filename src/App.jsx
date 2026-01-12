@@ -39,8 +39,13 @@ const FONTS = [
 
 // 분할 모드 정의
 const SPLIT_MODES = {
-  CROSS_4: { id: 'cross4', name: '십자', icon: '┼', cols: 2, rows: 2 },
+  CROSS_4: { id: 'cross4', name: '2×2', icon: '┼', cols: 2, rows: 2 },
+  GRID_2x3: { id: 'grid2x3', name: '2×3', icon: '▤', cols: 2, rows: 3 },
+  GRID_3x2: { id: 'grid3x2', name: '3×2', icon: '▥', cols: 3, rows: 2 },
   GRID_3x3: { id: 'grid3x3', name: '3×3', icon: '▦', cols: 3, rows: 3 },
+  GRID_3x4: { id: 'grid3x4', name: '3×4', icon: '▧', cols: 3, rows: 4 },
+  GRID_4x3: { id: 'grid4x3', name: '4×3', icon: '▨', cols: 4, rows: 3 },
+  GRID_4x4: { id: 'grid4x4', name: '4×4', icon: '▩', cols: 4, rows: 4 },
   VERTICAL_2: { id: 'vertical2', name: '세로 2분할', icon: '│', cols: 2, rows: 1 },
   VERTICAL_3: { id: 'vertical3', name: '세로 3분할', icon: '┆', cols: 3, rows: 1 },
   VERTICAL_4: { id: 'vertical4', name: '세로 4분할', icon: '┊', cols: 4, rows: 1 },
@@ -175,7 +180,7 @@ function App() {
   // 세로 분할선 추가
   const addVerticalLine = () => {
     const currentWidth = appliedTrim ? appliedTrim.width : imageSize.width
-    const existingLines = splitLines.vertical.sort((a, b) => a - b)
+    const existingLines = [...splitLines.vertical].sort((a, b) => a - b)
     let newLinePos
 
     if (existingLines.length === 0) {
@@ -184,15 +189,20 @@ function App() {
       // 가장 넓은 간격 찾아서 중간에 추가
       let maxGap = existingLines[0]
       let maxGapStart = 0
-      for (let i = 0; i < existingLines.length; i++) {
-        const gap = (existingLines[i + 1] || currentWidth) - existingLines[i]
+      for (let i = 0; i <= existingLines.length; i++) {
+        const start = i === 0 ? 0 : existingLines[i - 1]
+        const end = i === existingLines.length ? currentWidth : existingLines[i]
+        const gap = end - start
         if (gap > maxGap) {
           maxGap = gap
-          maxGapStart = existingLines[i]
+          maxGapStart = start
         }
       }
       newLinePos = maxGapStart + maxGap / 2
     }
+
+    // 범위 내로 제한
+    newLinePos = Math.max(10, Math.min(currentWidth - 10, newLinePos))
 
     setSplitLines(prev => ({
       ...prev,
@@ -203,7 +213,7 @@ function App() {
   // 가로 분할선 추가
   const addHorizontalLine = () => {
     const currentHeight = appliedTrim ? appliedTrim.height : imageSize.height
-    const existingLines = splitLines.horizontal.sort((a, b) => a - b)
+    const existingLines = [...splitLines.horizontal].sort((a, b) => a - b)
     let newLinePos
 
     if (existingLines.length === 0) {
@@ -212,15 +222,20 @@ function App() {
       // 가장 넓은 간격 찾아서 중간에 추가
       let maxGap = existingLines[0]
       let maxGapStart = 0
-      for (let i = 0; i < existingLines.length; i++) {
-        const gap = (existingLines[i + 1] || currentHeight) - existingLines[i]
+      for (let i = 0; i <= existingLines.length; i++) {
+        const start = i === 0 ? 0 : existingLines[i - 1]
+        const end = i === existingLines.length ? currentHeight : existingLines[i]
+        const gap = end - start
         if (gap > maxGap) {
           maxGap = gap
-          maxGapStart = existingLines[i]
+          maxGapStart = start
         }
       }
       newLinePos = maxGapStart + maxGap / 2
     }
+
+    // 범위 내로 제한
+    newLinePos = Math.max(10, Math.min(currentHeight - 10, newLinePos))
 
     setSplitLines(prev => ({
       ...prev,
@@ -765,8 +780,16 @@ function App() {
     const sourceWidth = appliedTrim ? appliedTrim.width : imageSize.width
     const sourceHeight = appliedTrim ? appliedTrim.height : imageSize.height
 
-    const verticalLines = [0, ...splitLines.vertical.sort((a, b) => a - b), sourceWidth]
-    const horizontalLines = [0, ...splitLines.horizontal.sort((a, b) => a - b), sourceHeight]
+    // 원본 배열을 변경하지 않도록 복사 후 정렬
+    const sortedVertical = [...splitLines.vertical].sort((a, b) => a - b)
+    const sortedHorizontal = [...splitLines.horizontal].sort((a, b) => a - b)
+
+    // 유효한 범위 내의 선만 사용 (0과 sourceWidth/Height 사이)
+    const validVertical = sortedVertical.filter(v => v > 0 && v < sourceWidth)
+    const validHorizontal = sortedHorizontal.filter(h => h > 0 && h < sourceHeight)
+
+    const verticalLines = [0, ...validVertical, sourceWidth]
+    const horizontalLines = [0, ...validHorizontal, sourceHeight]
 
     const pieces = []
 
@@ -782,23 +805,29 @@ function App() {
         if (row > 0) { y += margin; h -= margin; }
         if (row < horizontalLines.length - 2) { h -= margin; }
 
-        if (w > 0 && h > 0) {
+        // 좌표와 크기가 유효한지 확인
+        const finalX = Math.max(0, Math.min(x, sourceWidth))
+        const finalY = Math.max(0, Math.min(y, sourceHeight))
+        const finalW = Math.max(1, Math.min(w, sourceWidth - finalX))
+        const finalH = Math.max(1, Math.min(h, sourceHeight - finalY))
+
+        if (finalW > 0 && finalH > 0) {
           const pieceCanvas = document.createElement('canvas')
-          pieceCanvas.width = w
-          pieceCanvas.height = h
+          pieceCanvas.width = finalW
+          pieceCanvas.height = finalH
           const pieceCtx = pieceCanvas.getContext('2d')
-          pieceCtx.drawImage(image, sourceX + x, sourceY + y, w, h, 0, 0, w, h)
+          pieceCtx.drawImage(image, sourceX + finalX, sourceY + finalY, finalW, finalH, 0, 0, finalW, finalH)
 
           // 텍스트 오버레이 그리기 (클리핑으로 경계에서 잘림)
           textOverlays.forEach((text) => {
-            const textX = text.x - x
-            const textY = text.y - y
+            const textX = text.x - finalX
+            const textY = text.y - finalY
             const fontSize = text.fontSize || 12
 
             // 클리핑 영역 설정 (조각 경계 내에서만 텍스트 표시)
             pieceCtx.save()
             pieceCtx.beginPath()
-            pieceCtx.rect(0, 0, w, h)
+            pieceCtx.rect(0, 0, finalW, finalH)
             pieceCtx.clip()
 
             pieceCtx.font = `${fontSize}px ${text.fontFamily}`
@@ -864,14 +893,26 @@ function App() {
 
   // 미리보기 그리드 레이아웃 계산
   const previewGridStyle = useMemo(() => {
-    // 사용자 정의 모드에서는 실제 분할선 개수로 계산
-    const cols = splitMode.custom ? splitLines.vertical.length + 1 : splitMode.cols
-    const rows = splitMode.custom ? splitLines.horizontal.length + 1 : splitMode.rows
+    const sourceWidth = appliedTrim ? appliedTrim.width : imageSize.width
+    const sourceHeight = appliedTrim ? appliedTrim.height : imageSize.height
+
+    // 사용자 정의 모드에서는 유효한 분할선 개수로 계산
+    let cols, rows
+    if (splitMode.custom) {
+      const validVertical = splitLines.vertical.filter(v => v > 0 && v < sourceWidth)
+      const validHorizontal = splitLines.horizontal.filter(h => h > 0 && h < sourceHeight)
+      cols = validVertical.length + 1
+      rows = validHorizontal.length + 1
+    } else {
+      cols = splitMode.cols
+      rows = splitMode.rows
+    }
+
     return {
       gridTemplateColumns: `repeat(${cols}, 1fr)`,
       gridTemplateRows: `repeat(${rows}, 1fr)`
     }
-  }, [splitMode, splitLines])
+  }, [splitMode, splitLines, appliedTrim, imageSize])
 
   const selectedText = selectedTextIndex !== null ? textOverlays[selectedTextIndex] : null
 
