@@ -522,9 +522,22 @@ function App() {
     newOverlays[selectedTextIndex] = { ...newOverlays[selectedTextIndex], ...updates }
     setTextOverlays(newOverlays)
 
-    // 폰트 변경 시 폰트 로드 대기 후 다시 그리기
+    // 폰트 변경 시 폰트 로드 후 다시 그리기
     if (updates.fontFamily) {
-      document.fonts.ready.then(() => {
+      // 폰트를 명시적으로 로드 트리거
+      const testDiv = document.createElement('div')
+      testDiv.style.fontFamily = updates.fontFamily
+      testDiv.style.position = 'absolute'
+      testDiv.style.visibility = 'hidden'
+      testDiv.textContent = '폰트 로드 테스트 Font Load Test'
+      document.body.appendChild(testDiv)
+
+      // 폰트 로드 완료 대기
+      document.fonts.load(`16px "${updates.fontFamily}"`).then(() => {
+        document.body.removeChild(testDiv)
+        setFontLoadTrigger(prev => prev + 1)
+      }).catch(() => {
+        document.body.removeChild(testDiv)
         setFontLoadTrigger(prev => prev + 1)
       })
     }
