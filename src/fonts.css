@@ -1,0 +1,212 @@
+/* 커스텀 폰트 */
+
+/* Arita Buri */
+@font-face {
+  font-family: 'Arita Buri';
+  src: url('/fonts/AritaBuriKR-HairLine.ttf') format('truetype');
+  font-weight: 100;
+}
+@font-face {
+  font-family: 'Arita Buri';
+  src: url('/fonts/AritaBuriKR-Light.ttf') format('truetype');
+  font-weight: 300;
+}
+@font-face {
+  font-family: 'Arita Buri';
+  src: url('/fonts/AritaBuriKR-Medium.ttf') format('truetype');
+  font-weight: 500;
+}
+@font-face {
+  font-family: 'Arita Buri';
+  src: url('/fonts/AritaBuriKR-SemiBold.ttf') format('truetype');
+  font-weight: 600;
+}
+@font-face {
+  font-family: 'Arita Buri';
+  src: url('/fonts/AritaBuriKR-Bold.ttf') format('truetype');
+  font-weight: 700;
+}
+
+/* Black Han Sans */
+@font-face {
+  font-family: 'Black Han Sans';
+  src: url('/fonts/BlackHanSans-Regular.ttf') format('truetype');
+}
+
+/* Cafe24 Ssurround */
+@font-face {
+  font-family: 'Cafe24 Ssurround';
+  src: url('/fonts/Cafe24Ssurround-v2.0.ttf') format('truetype');
+}
+
+/* Changwon Dangam */
+@font-face {
+  font-family: 'Changwon Dangam';
+  src: url('/fonts/ChangwonDangamRound.otf') format('opentype');
+}
+
+/* Freesentation */
+@font-face {
+  font-family: 'Freesentation';
+  src: url('/fonts/FreesentationVF.ttf') format('truetype');
+}
+
+/* Godo */
+@font-face {
+  font-family: 'Godo';
+  src: url('/fonts/GodoM.ttf') format('truetype');
+  font-weight: 500;
+}
+@font-face {
+  font-family: 'Godo';
+  src: url('/fonts/GodoB.ttf') format('truetype');
+  font-weight: 700;
+}
+
+/* Gowun Dodum */
+@font-face {
+  font-family: 'Gowun Dodum';
+  src: url('/fonts/GowunDodum-Regular.ttf') format('truetype');
+}
+
+/* Great Vibes */
+@font-face {
+  font-family: 'Great Vibes';
+  src: url('/fonts/GreatVibes-Regular.ttf') format('truetype');
+}
+
+/* Hakgyoansim Poster */
+@font-face {
+  font-family: 'Hakgyoansim Poster';
+  src: url('/fonts/Hakgyoansim_PosterB.ttf') format('truetype');
+}
+
+/* Luckiest Guy */
+@font-face {
+  font-family: 'Luckiest Guy';
+  src: url('/fonts/LuckiestGuy-Regular.ttf') format('truetype');
+}
+
+/* MBC 1961 Gulim */
+@font-face {
+  font-family: 'MBC 1961 Gulim';
+  src: url('/fonts/MBC1961Gulim.otf') format('opentype');
+}
+
+/* MY Arirang */
+@font-face {
+  font-family: 'MY Arirang';
+  src: url('/fonts/MYArirang.otf') format('opentype');
+}
+
+/* Oh Chewy */
+@font-face {
+  font-family: 'Oh Chewy';
+  src: url('/fonts/OhChewy.ttf') format('truetype');
+}
+
+/* Palladium */
+@font-face {
+  font-family: 'Palladium';
+  src: url('/fonts/Palladium.ttf') format('truetype');
+}
+
+/* Paperlogy */
+@font-face {
+  font-family: 'Paperlogy';
+  src: url('/fonts/Paperlogy-1Thin.ttf') format('truetype');
+  font-weight: 100;
+}
+@font-face {
+  font-family: 'Paperlogy';
+  src: url('/fonts/Paperlogy-2ExtraLight.ttf') format('truetype');
+  font-weight: 200;
+}
+@font-face {
+  font-family: 'Paperlogy';
+  src: url('/fonts/Paperlogy-3Light.ttf') format('truetype');
+  font-weight: 300;
+}
+@font-face {
+  font-family: 'Paperlogy';
+  src: url('/fonts/Paperlogy-4Regular.ttf') format('truetype');
+  font-weight: 400;
+}
+@font-face {
+  font-family: 'Paperlogy';
+  src: url('/fonts/Paperlogy-5Medium.ttf') format('truetype');
+  font-weight: 500;
+}
+@font-face {
+  font-family: 'Paperlogy';
+  src: url('/fonts/Paperlogy-6SemiBold.ttf') format('truetype');
+  font-weight: 600;
+}
+@font-face {
+  font-family: 'Paperlogy';
+  src: url('/fonts/Paperlogy-7Bold.ttf') format('truetype');
+  font-weight: 700;
+}
+@font-face {
+  font-family: 'Paperlogy';
+  src: url('/fonts/Paperlogy-8ExtraBold.ttf') format('truetype');
+  font-weight: 800;
+}
+@font-face {
+  font-family: 'Paperlogy';
+  src: url('/fonts/Paperlogy-9Black.ttf') format('truetype');
+  font-weight: 900;
+}
+
+/* Partial Sans */
+@font-face {
+  font-family: 'Partial Sans';
+  src: url('/fonts/PartialSansKR-Regular.otf') format('opentype');
+}
+
+/* Pretendard */
+@font-face {
+  font-family: 'Pretendard';
+  src: url('/fonts/Pretendard-Regular.otf') format('opentype');
+}
+
+/* Recipekorea */
+@font-face {
+  font-family: 'Recipekorea';
+  src: url('/fonts/Recipekorea.ttf') format('truetype');
+}
+
+/* Ria Sans */
+@font-face {
+  font-family: 'Ria Sans';
+  src: url('/fonts/RiaSans-Regular.ttf') format('truetype');
+  font-weight: 400;
+}
+@font-face {
+  font-family: 'Ria Sans';
+  src: url('/fonts/RiaSans-Bold.ttf') format('truetype');
+  font-weight: 700;
+}
+@font-face {
+  font-family: 'Ria Sans';
+  src: url('/fonts/RiaSans-ExtraBold.ttf') format('truetype');
+  font-weight: 800;
+}
+
+/* SF Pro Display */
+@font-face {
+  font-family: 'SF Pro Display';
+  src: url('/fonts/SFProDisplay-Regular.ttf') format('truetype');
+}
+
+/* Swagger */
+@font-face {
+  font-family: 'Swagger';
+  src: url('/fonts/Swagger.ttf') format('truetype');
+}
+
+/* Yoon Childfund Korea */
+@font-face {
+  font-family: 'Yoon Childfund';
+  src: url('/fonts/YoonChildfundkoreaDaeHan.ttf') format('truetype');
+}

@@ -1,6 +1,41 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import JSZip from 'jszip'
 import './App.css'
+import './fonts.css'
+
+// 폰트 목록
+const FONTS = [
+  // 시스템 폰트
+  { name: 'Arial', value: 'Arial, sans-serif' },
+  { name: 'Arial Black', value: 'Arial Black, sans-serif' },
+  { name: 'Georgia', value: 'Georgia, serif' },
+  { name: 'Times New Roman', value: 'Times New Roman, serif' },
+  { name: 'Impact', value: 'Impact, sans-serif' },
+  // 한글 폰트
+  { name: '검은고딕 (Black Han Sans)', value: 'Black Han Sans' },
+  { name: '카페24 써라운드', value: 'Cafe24 Ssurround' },
+  { name: '창원단감', value: 'Changwon Dangam' },
+  { name: '프리젠테이션', value: 'Freesentation' },
+  { name: '고도', value: 'Godo' },
+  { name: '고운돋움', value: 'Gowun Dodum' },
+  { name: '학교안심 포스터', value: 'Hakgyoansim Poster' },
+  { name: 'MBC 1961 굴림', value: 'MBC 1961 Gulim' },
+  { name: 'MY 아리랑', value: 'MY Arirang' },
+  { name: '페이퍼로지', value: 'Paperlogy' },
+  { name: '파셜산스', value: 'Partial Sans' },
+  { name: '프리텐다드', value: 'Pretendard' },
+  { name: '레시피코리아', value: 'Recipekorea' },
+  { name: '리아산스', value: 'Ria Sans' },
+  { name: '스웨거', value: 'Swagger' },
+  { name: '윤초록우산 어린이', value: 'Yoon Childfund' },
+  { name: '아리따 부리', value: 'Arita Buri' },
+  // 영문 폰트
+  { name: 'Great Vibes', value: 'Great Vibes' },
+  { name: 'Luckiest Guy', value: 'Luckiest Guy' },
+  { name: 'Oh Chewy', value: 'Oh Chewy' },
+  { name: 'Palladium', value: 'Palladium' },
+  { name: 'SF Pro Display', value: 'SF Pro Display' },
+]
 
 // 분할 모드 정의
 const SPLIT_MODES = {
@@ -52,6 +87,7 @@ function App() {
   const [dragLineType, setDragLineType] = useState(null)
   const [trimDragState, setTrimDragState] = useState(null)
   const [textDragState, setTextDragState] = useState(null)
+  const [textResizeState, setTextResizeState] = useState(null)
 
   // 분할선 초기화 (등분 모드)
   const initializeSplitLines = useCallback((mode, width, height) => {
@@ -144,6 +180,38 @@ function App() {
     }
   }
 
+  // 텍스트 바운딩 박스 계산
+  const getTextBounds = (text, ctx) => {
+    ctx.font = `${text.fontSize}px ${text.fontFamily}`
+    const metrics = ctx.measureText(text.content)
+    return {
+      x: text.x,
+      y: text.y - text.fontSize,
+      width: metrics.width,
+      height: text.fontSize
+    }
+  }
+
+  // 텍스트 리사이즈 핸들 체크
+  const getTextResizeHandle = (coords, text, ctx) => {
+    const bounds = getTextBounds(text, ctx)
+    const currentWidth = appliedTrim ? appliedTrim.width : imageSize.width
+    const handleSize = 20 * (currentWidth / canvasRef.current.getBoundingClientRect().width)
+
+    // 우하단 코너 핸들
+    const handleX = bounds.x + bounds.width
+    const handleY = bounds.y + bounds.height
+
+    if (Math.abs(coords.x - handleX) < handleSize && Math.abs(coords.y - handleY) < handleSize) {
+      return 'se'
+    }
+    // 우상단 코너 핸들
+    if (Math.abs(coords.x - handleX) < handleSize && Math.abs(coords.y - bounds.y) < handleSize) {
+      return 'ne'
+    }
+    return null
+  }
+
   // 텍스트 클릭 체크
   const getClickedTextIndex = (coords) => {
     const canvas = canvasRef.current
@@ -151,16 +219,13 @@ function App() {
 
     for (let i = textOverlays.length - 1; i >= 0; i--) {
       const text = textOverlays[i]
-      ctx.font = `${text.fontSize}px ${text.fontFamily}`
-      const metrics = ctx.measureText(text.content)
-      const textWidth = metrics.width
-      const textHeight = text.fontSize
+      const bounds = getTextBounds(text, ctx)
 
       if (
-        coords.x >= text.x - 10 &&
-        coords.x <= text.x + textWidth + 10 &&
-        coords.y >= text.y - textHeight - 10 &&
-        coords.y <= text.y + 10
+        coords.x >= bounds.x - 10 &&
+        coords.x <= bounds.x + bounds.width + 10 &&
+        coords.y >= bounds.y - 10 &&
+        coords.y <= bounds.y + bounds.height + 10
       ) {
         return i
       }
@@ -172,11 +237,41 @@ function App() {
   const handleMouseDown = (e) => {
     if (!image) return
     const canvas = canvasRef.current
+    const ctx = canvas.getContext('2d')
     const coords = getCanvasCoords(e, canvas)
+
+    // 선택된 텍스트의 리사이즈 핸들 체크
+    if (selectedTextIndex !== null) {
+      const text = textOverlays[selectedTextIndex]
+      const handle = getTextResizeHandle(coords, text, ctx)
+      if (handle) {
+        setTextResizeState({
+          index: selectedTextIndex,
+          handle,
+          startCoords: coords,
+          startFontSize: text.fontSize
+        })
+        return
+      }
+    }
 
     // 텍스트 클릭 체크
     const clickedTextIdx = getClickedTextIndex(coords)
     if (clickedTextIdx !== null) {
+      // 리사이즈 핸들 체크
+      const text = textOverlays[clickedTextIdx]
+      const handle = getTextResizeHandle(coords, text, ctx)
+      if (handle) {
+        setSelectedTextIndex(clickedTextIdx)
+        setTextResizeState({
+          index: clickedTextIdx,
+          handle,
+          startCoords: coords,
+          startFontSize: text.fontSize
+        })
+        return
+      }
+
       setSelectedTextIndex(clickedTextIdx)
       setTextDragState({
         index: clickedTextIdx,
@@ -237,6 +332,22 @@ function App() {
     const currentWidth = appliedTrim ? appliedTrim.width : imageSize.width
     const currentHeight = appliedTrim ? appliedTrim.height : imageSize.height
 
+    // 텍스트 리사이즈
+    if (textResizeState) {
+      const dy = coords.y - textResizeState.startCoords.y
+      const dx = coords.x - textResizeState.startCoords.x
+      // 대각선 방향의 변화량을 사용
+      const delta = textResizeState.handle === 'se' ? Math.max(dx, dy) : Math.max(dx, -dy)
+      const newFontSize = Math.max(12, textResizeState.startFontSize + delta)
+      const newOverlays = [...textOverlays]
+      newOverlays[textResizeState.index] = {
+        ...newOverlays[textResizeState.index],
+        fontSize: Math.round(newFontSize)
+      }
+      setTextOverlays(newOverlays)
+      return
+    }
+
     // 텍스트 드래그
     if (textDragState) {
       const dx = coords.x - textDragState.startCoords.x
@@ -293,6 +404,7 @@ function App() {
     setDragLineType(null)
     setTrimDragState(null)
     setTextDragState(null)
+    setTextResizeState(null)
   }
 
   const getTrimHandle = (coords, area) => {
@@ -403,7 +515,7 @@ function App() {
   }
 
   // 캔버스에 텍스트 그리기
-  const drawTextOverlays = (ctx, offsetX = 0, offsetY = 0) => {
+  const drawTextOverlays = (ctx, offsetX = 0, offsetY = 0, drawHandles = true) => {
     textOverlays.forEach((text, index) => {
       ctx.font = `${text.fontSize}px ${text.fontFamily}`
       ctx.textBaseline = 'bottom'
@@ -419,19 +531,39 @@ function App() {
       ctx.fillStyle = text.color
       ctx.fillText(text.content, text.x - offsetX, text.y - offsetY)
 
-      // 선택된 텍스트 표시
-      if (index === selectedTextIndex) {
+      // 선택된 텍스트 표시 (핸들 포함)
+      if (index === selectedTextIndex && drawHandles) {
         const metrics = ctx.measureText(text.content)
+        const boxX = text.x - offsetX - 5
+        const boxY = text.y - offsetY - text.fontSize - 5
+        const boxW = metrics.width + 10
+        const boxH = text.fontSize + 10
+
+        // 선택 박스
         ctx.strokeStyle = '#4fc3f7'
         ctx.lineWidth = 2
         ctx.setLineDash([5, 5])
-        ctx.strokeRect(
-          text.x - offsetX - 5,
-          text.y - offsetY - text.fontSize - 5,
-          metrics.width + 10,
-          text.fontSize + 10
-        )
+        ctx.strokeRect(boxX, boxY, boxW, boxH)
         ctx.setLineDash([])
+
+        // 리사이즈 핸들 (우하단, 우상단)
+        const handleSize = 10
+        ctx.fillStyle = '#4fc3f7'
+
+        // 우하단 핸들
+        ctx.fillRect(
+          boxX + boxW - handleSize / 2,
+          boxY + boxH - handleSize / 2,
+          handleSize,
+          handleSize
+        )
+        // 우상단 핸들
+        ctx.fillRect(
+          boxX + boxW - handleSize / 2,
+          boxY - handleSize / 2,
+          handleSize,
+          handleSize
+        )
       }
     })
   }
@@ -544,25 +676,30 @@ function App() {
           const pieceCtx = pieceCanvas.getContext('2d')
           pieceCtx.drawImage(image, sourceX + x, sourceY + y, w, h, 0, 0, w, h)
 
-          // 텍스트 오버레이 그리기 (조각 내 위치 조정)
+          // 텍스트 오버레이 그리기 (클리핑으로 경계에서 잘림)
           textOverlays.forEach((text) => {
             const textX = text.x - x
             const textY = text.y - y
 
-            // 텍스트가 이 조각 안에 있는지 확인
-            if (textX > -200 && textX < w + 200 && textY > -text.fontSize && textY < h + text.fontSize) {
-              pieceCtx.font = `${text.fontSize}px ${text.fontFamily}`
-              pieceCtx.textBaseline = 'bottom'
+            // 클리핑 영역 설정 (조각 경계 내에서만 텍스트 표시)
+            pieceCtx.save()
+            pieceCtx.beginPath()
+            pieceCtx.rect(0, 0, w, h)
+            pieceCtx.clip()
 
-              if (text.hasStroke && text.strokeWidth > 0) {
-                pieceCtx.strokeStyle = text.strokeColor
-                pieceCtx.lineWidth = text.strokeWidth
-                pieceCtx.strokeText(text.content, textX, textY)
-              }
+            pieceCtx.font = `${text.fontSize}px ${text.fontFamily}`
+            pieceCtx.textBaseline = 'bottom'
 
-              pieceCtx.fillStyle = text.color
-              pieceCtx.fillText(text.content, textX, textY)
+            if (text.hasStroke && text.strokeWidth > 0) {
+              pieceCtx.strokeStyle = text.strokeColor
+              pieceCtx.lineWidth = text.strokeWidth
+              pieceCtx.strokeText(text.content, textX, textY)
             }
+
+            pieceCtx.fillStyle = text.color
+            pieceCtx.fillText(text.content, textX, textY)
+
+            pieceCtx.restore()
           })
 
           pieces.push({
@@ -807,15 +944,29 @@ function App() {
                   />
                 </div>
                 <div className="text-editor-row">
+                  <label>폰트</label>
+                  <select
+                    value={selectedText.fontFamily}
+                    onChange={(e) => updateSelectedText({ fontFamily: e.target.value })}
+                    className="font-select"
+                  >
+                    {FONTS.map(font => (
+                      <option key={font.value} value={font.value} style={{ fontFamily: font.value }}>
+                        {font.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="text-editor-row">
                   <label>크기</label>
                   <input
-                    type="range"
+                    type="number"
                     min="12"
-                    max="200"
                     value={selectedText.fontSize}
-                    onChange={(e) => updateSelectedText({ fontSize: Number(e.target.value) })}
+                    onChange={(e) => updateSelectedText({ fontSize: Math.max(12, Number(e.target.value)) })}
+                    className="size-input"
                   />
-                  <span>{selectedText.fontSize}px</span>
+                  <span>px</span>
                 </div>
                 <div className="text-editor-row">
                   <label>색상</label>
@@ -836,7 +987,7 @@ function App() {
                   <input
                     type="range"
                     min="0"
-                    max="10"
+                    max="20"
                     value={selectedText.strokeWidth}
                     onChange={(e) => updateSelectedText({ strokeWidth: Number(e.target.value) })}
                   />
@@ -849,7 +1000,7 @@ function App() {
             )}
 
             {textOverlays.length > 0 && (
-              <p className="setting-hint">텍스트를 드래그하여 위치 조정</p>
+              <p className="setting-hint">드래그: 이동 | 모서리 드래그: 크기 조절</p>
             )}
           </div>
 
