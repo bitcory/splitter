@@ -45,11 +45,10 @@
 }
 
 .header-credit {
-  font-size: 0.65rem;
+  font-size: 0.85rem;
   color: rgba(255, 255, 255, 0.4);
-  margin-left: 0.5rem;
-  align-self: flex-end;
-  margin-bottom: 0.2rem;
+  margin-left: 2rem;
+  align-self: center;
 }
 
 /* 메인 컨텐츠 */
