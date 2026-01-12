@@ -591,14 +591,22 @@ function App() {
   }
 
   // 텍스트 추가
-  const addTextOverlay = () => {
+  const addTextOverlay = async () => {
     if (!newTextInput.trim()) return
     const currentWidth = appliedTrim ? appliedTrim.width : imageSize.width
     const currentHeight = appliedTrim ? appliedTrim.height : imageSize.height
 
-    // 텍스트 크기 측정을 위한 임시 캔버스
     const fontSize = 200
     const fontFamily = 'Hakgyoansim Poster'
+
+    // 폰트 로드 대기
+    try {
+      await document.fonts.load(`${fontSize}px "${fontFamily}"`)
+    } catch (e) {
+      // 폰트 로드 실패해도 계속 진행
+    }
+
+    // 텍스트 크기 측정
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
     ctx.font = `${fontSize}px ${fontFamily}`
@@ -621,10 +629,11 @@ function App() {
       strokeWidth: 10,
       hasStroke: true
     }
-    setTextOverlays([...textOverlays, newText])
+    setTextOverlays(prev => [...prev, newText])
     setNewTextInput('')
     setIsAddingText(false)
     setSelectedTextIndex(textOverlays.length)
+    setFontLoadTrigger(prev => prev + 1)
   }
 
   // 텍스트 삭제
