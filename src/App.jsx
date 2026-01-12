@@ -272,12 +272,17 @@ function App() {
         return
       }
 
-      setSelectedTextIndex(clickedTextIdx)
-      setTextDragState({
-        index: clickedTextIdx,
-        startCoords: coords,
-        startPos: { x: textOverlays[clickedTextIdx].x, y: textOverlays[clickedTextIdx].y }
-      })
+      // 이미 선택된 텍스트를 클릭하면 드래그 시작
+      if (clickedTextIdx === selectedTextIndex) {
+        setTextDragState({
+          index: clickedTextIdx,
+          startCoords: coords,
+          startPos: { x: textOverlays[clickedTextIdx].x, y: textOverlays[clickedTextIdx].y }
+        })
+      } else {
+        // 새 텍스트 선택 (드래그 없이)
+        setSelectedTextIndex(clickedTextIdx)
+      }
       return
     }
 
@@ -765,13 +770,12 @@ function App() {
         <div className="logo">
           <img src="/logo.svg" alt="AI CREW - Image Splitter" className="logo-img" />
         </div>
+        <div className="header-title">
+          <h1>IMAGE SPLITTER</h1>
+          <p>이미지를 분할하는 도구</p>
+        </div>
+        <div className="header-spacer"></div>
       </header>
-
-      {/* 메인 타이틀 */}
-      <div className="page-title">
-        <h1>IMAGE SPLITTER</h1>
-        <p>이미지를 분할하는 도구</p>
-      </div>
 
       {/* 메인 컨텐츠 */}
       <main className="main">
@@ -963,7 +967,20 @@ function App() {
                     type="number"
                     min="12"
                     value={selectedText.fontSize}
-                    onChange={(e) => updateSelectedText({ fontSize: Math.max(12, Number(e.target.value)) })}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      if (val === '') {
+                        updateSelectedText({ fontSize: 12 })
+                      } else {
+                        updateSelectedText({ fontSize: Number(val) || 12 })
+                      }
+                    }}
+                    onBlur={(e) => {
+                      const val = Number(e.target.value)
+                      if (!val || val < 12) {
+                        updateSelectedText({ fontSize: 12 })
+                      }
+                    }}
                     className="size-input"
                   />
                   <span>px</span>
@@ -1000,7 +1017,7 @@ function App() {
             )}
 
             {textOverlays.length > 0 && (
-              <p className="setting-hint">드래그: 이동 | 모서리 드래그: 크기 조절</p>
+              <p className="setting-hint">클릭: 선택 → 다시 클릭 후 드래그: 이동</p>
             )}
           </div>
 

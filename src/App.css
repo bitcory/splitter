@@ -11,6 +11,9 @@
 
 /* 헤더 */
 .header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 1rem 2rem;
   background: rgba(13, 17, 23, 0.95);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
@@ -22,6 +25,7 @@
 .logo {
   display: flex;
   align-items: center;
+  flex: 1;
 }
 
 .logo-img {
@@ -29,23 +33,26 @@
   width: auto;
 }
 
-/* 페이지 타이틀 */
-.page-title {
+.header-title {
   text-align: center;
-  padding: 3rem 2rem 2rem;
+  flex: 2;
 }
 
-.page-title h1 {
-  font-size: 2.5rem;
+.header-title h1 {
+  font-size: 1.5rem;
   font-weight: 300;
   color: #fff;
-  letter-spacing: 8px;
-  margin-bottom: 0.5rem;
+  letter-spacing: 6px;
+  margin-bottom: 0.25rem;
 }
 
-.page-title p {
+.header-title p {
   color: rgba(255, 255, 255, 0.5);
-  font-size: 0.9rem;
+  font-size: 0.75rem;
+}
+
+.header-spacer {
+  flex: 1;
 }
 
 /* 메인 컨텐츠 */
@@ -488,9 +495,13 @@
     width: 100%;
   }
 
-  .page-title h1 {
-    font-size: 1.75rem;
+  .header-title h1 {
+    font-size: 1.25rem;
     letter-spacing: 4px;
+  }
+
+  .header-title p {
+    font-size: 0.65rem;
   }
 
   .split-modes {
@@ -503,13 +514,13 @@
     padding: 0.75rem 1rem;
   }
 
-  .page-title {
-    padding: 2rem 1rem 1.5rem;
+  .header-title h1 {
+    font-size: 1rem;
+    letter-spacing: 2px;
   }
 
-  .page-title h1 {
-    font-size: 1.5rem;
-    letter-spacing: 2px;
+  .header-title p {
+    display: none;
   }
 
   .main {
