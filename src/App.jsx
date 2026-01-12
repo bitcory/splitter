@@ -864,11 +864,14 @@ function App() {
 
   // 미리보기 그리드 레이아웃 계산
   const previewGridStyle = useMemo(() => {
+    // 사용자 정의 모드에서는 실제 분할선 개수로 계산
+    const cols = splitMode.custom ? splitLines.vertical.length + 1 : splitMode.cols
+    const rows = splitMode.custom ? splitLines.horizontal.length + 1 : splitMode.rows
     return {
-      gridTemplateColumns: `repeat(${splitMode.cols}, 1fr)`,
-      gridTemplateRows: `repeat(${splitMode.rows}, 1fr)`
+      gridTemplateColumns: `repeat(${cols}, 1fr)`,
+      gridTemplateRows: `repeat(${rows}, 1fr)`
     }
-  }, [splitMode])
+  }, [splitMode, splitLines])
 
   const selectedText = selectedTextIndex !== null ? textOverlays[selectedTextIndex] : null
 
