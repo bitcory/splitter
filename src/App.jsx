@@ -596,12 +596,26 @@ function App() {
     const currentWidth = appliedTrim ? appliedTrim.width : imageSize.width
     const currentHeight = appliedTrim ? appliedTrim.height : imageSize.height
 
+    // 텍스트 크기 측정을 위한 임시 캔버스
+    const fontSize = 200
+    const fontFamily = 'Hakgyoansim Poster'
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext('2d')
+    ctx.font = `${fontSize}px ${fontFamily}`
+    const metrics = ctx.measureText(newTextInput)
+    const textBoxWidth = metrics.width
+    const textBoxHeight = fontSize
+
+    // 텍스트 박스 중앙이 이미지 중앙에 오도록 위치 계산
+    const centerX = currentWidth / 2
+    const centerY = currentHeight / 2
+
     const newText = {
       content: newTextInput,
-      x: currentWidth / 2,
-      y: currentHeight / 2,
-      fontSize: 250,
-      fontFamily: 'Hakgyoansim Poster',
+      x: centerX - textBoxWidth / 2,
+      y: centerY + textBoxHeight / 2,
+      fontSize: fontSize,
+      fontFamily: fontFamily,
       color: '#ffffff',
       strokeColor: '#000000',
       strokeWidth: 10,
