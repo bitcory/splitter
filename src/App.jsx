@@ -741,9 +741,10 @@ function App() {
         })
       }
     } else {
+      // 분할선 그리기
+      ctx.setLineDash([])
       ctx.strokeStyle = '#ff0000'
-      ctx.lineWidth = 2
-      ctx.setLineDash([10, 5])
+      ctx.lineWidth = 4
 
       splitLines.vertical.forEach(x => {
         ctx.beginPath()
