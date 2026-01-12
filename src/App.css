@@ -313,53 +313,6 @@
   color: #4fc3f7;
 }
 
-/* 마진 컨트롤 */
-.margin-control {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.margin-control input[type="range"] {
-  flex: 1;
-  height: 4px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.1);
-  appearance: none;
-  cursor: pointer;
-}
-
-.margin-control input[type="range"]::-webkit-slider-thumb {
-  appearance: none;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #4fc3f7;
-  cursor: pointer;
-}
-
-.margin-value {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.margin-value input[type="number"] {
-  width: 50px;
-  padding: 0.375rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.05);
-  color: #fff;
-  font-size: 0.813rem;
-  text-align: center;
-}
-
-.margin-value span {
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 0.813rem;
-}
-
 /* 포맷 버튼 */
 .format-buttons {
   display: flex;

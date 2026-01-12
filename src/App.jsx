@@ -70,8 +70,6 @@ function App() {
   const [trimArea, setTrimArea] = useState(null)
   const [appliedTrim, setAppliedTrim] = useState(null)
 
-  // 마진 설정
-  const [margin, setMargin] = useState(0)
 
   // 출력 설정
   const [outputFormat, setOutputFormat] = useState('jpeg')
@@ -743,18 +741,8 @@ function App() {
         ctx.lineTo(drawWidth, y)
         ctx.stroke()
       })
-
-      if (margin > 0) {
-        ctx.fillStyle = 'rgba(255, 0, 0, 0.3)'
-        splitLines.vertical.forEach(x => {
-          ctx.fillRect(x - margin, 0, margin * 2, drawHeight)
-        })
-        splitLines.horizontal.forEach(y => {
-          ctx.fillRect(0, y - margin, drawWidth, margin * 2)
-        })
-      }
     }
-  }, [image, imageSize, splitLines, isTrimming, trimArea, appliedTrim, margin, textOverlays, selectedTextIndex, fontLoadTrigger])
+  }, [image, imageSize, splitLines, isTrimming, trimArea, appliedTrim, textOverlays, selectedTextIndex, fontLoadTrigger])
 
   // 분할된 이미지 조각들 생성
   const splitPieces = useMemo(() => {
@@ -780,15 +768,10 @@ function App() {
 
     for (let row = 0; row < horizontalLines.length - 1; row++) {
       for (let col = 0; col < verticalLines.length - 1; col++) {
-        let x = verticalLines[col]
-        let y = horizontalLines[row]
-        let w = verticalLines[col + 1] - x
-        let h = horizontalLines[row + 1] - y
-
-        if (col > 0) { x += margin; w -= margin; }
-        if (col < verticalLines.length - 2) { w -= margin; }
-        if (row > 0) { y += margin; h -= margin; }
-        if (row < horizontalLines.length - 2) { h -= margin; }
+        const x = verticalLines[col]
+        const y = horizontalLines[row]
+        const w = verticalLines[col + 1] - x
+        const h = horizontalLines[row + 1] - y
 
         // 좌표와 크기가 유효한지 확인
         const finalX = Math.max(0, Math.min(x, sourceWidth))
@@ -842,7 +825,7 @@ function App() {
     }
 
     return pieces
-  }, [image, imageSize, splitLines, appliedTrim, margin, outputFormat, quality, textOverlays, fontLoadTrigger])
+  }, [image, imageSize, splitLines, appliedTrim, outputFormat, quality, textOverlays, fontLoadTrigger])
 
   // 개별 다운로드
   const downloadPiece = (piece) => {
@@ -1205,33 +1188,9 @@ function App() {
             )}
           </div>
 
-          {/* STEP 4: 마진 */}
+          {/* STEP 4: 출력 설정 */}
           <div className="setting-group">
-            <label className="setting-label">STEP 4: 마진 (분할선 양옆 제거)</label>
-            <div className="margin-control">
-              <input
-                type="range"
-                min="0"
-                max="50"
-                value={margin}
-                onChange={(e) => setMargin(Number(e.target.value))}
-              />
-              <div className="margin-value">
-                <input
-                  type="number"
-                  min="0"
-                  max="50"
-                  value={margin}
-                  onChange={(e) => setMargin(Number(e.target.value))}
-                />
-                <span>px</span>
-              </div>
-            </div>
-          </div>
-
-          {/* STEP 5: 출력 설정 */}
-          <div className="setting-group">
-            <label className="setting-label">STEP 5: 출력 설정</label>
+            <label className="setting-label">STEP 4: 출력 설정</label>
             <div className="format-buttons">
               {['jpeg', 'png', 'webp'].map(format => (
                 <button
@@ -1259,7 +1218,7 @@ function App() {
 
           {/* 다운로드 버튼 */}
           <div className="setting-group">
-            <label className="setting-label">STEP 6: 다운로드</label>
+            <label className="setting-label">STEP 5: 다운로드</label>
             <div className="download-buttons">
               <button
                 className="download-btn"
