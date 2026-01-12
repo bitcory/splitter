@@ -700,6 +700,27 @@ function App() {
     // 텍스트 오버레이 그리기
     drawTextOverlays(ctx)
 
+    // 텍스트 선택 시 중앙 가이드 선 표시
+    if (selectedTextIndex !== null) {
+      ctx.setLineDash([10, 10])
+      ctx.strokeStyle = '#00ff00'
+      ctx.lineWidth = 2
+
+      // 세로 중앙선
+      ctx.beginPath()
+      ctx.moveTo(drawWidth / 2, 0)
+      ctx.lineTo(drawWidth / 2, drawHeight)
+      ctx.stroke()
+
+      // 가로 중앙선
+      ctx.beginPath()
+      ctx.moveTo(0, drawHeight / 2)
+      ctx.lineTo(drawWidth, drawHeight / 2)
+      ctx.stroke()
+
+      ctx.setLineDash([])
+    }
+
     if (isTrimming && !appliedTrim) {
       ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'
       ctx.fillRect(0, 0, imageSize.width, imageSize.height)
