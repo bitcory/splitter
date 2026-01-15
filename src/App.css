@@ -16,14 +16,41 @@
   position: sticky;
   top: 0;
   z-index: 100;
-  padding: 1rem 2rem;
 }
 
 .header-content {
   max-width: 1400px;
   margin: 0 auto;
+  padding: 1rem 2rem;
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* 언어 토글 버튼 */
+.lang-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.lang-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.lang-toggle-btn svg {
+  opacity: 0.8;
 }
 
 .header-title {

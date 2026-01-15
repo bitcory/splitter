@@ -37,6 +37,118 @@ const FONTS = [
   { name: 'SF Pro Display', value: 'SF Pro Display' },
 ]
 
+// 다국어 텍스트
+const TRANSLATIONS = {
+  ko: {
+    // 분할 모드
+    mode_cross4: '2×2',
+    mode_grid2x3: '2×3',
+    mode_grid3x2: '3×2',
+    mode_grid3x3: '3×3',
+    mode_grid3x4: '3×4',
+    mode_grid4x3: '4×3',
+    mode_grid4x4: '4×4',
+    mode_vertical2: '세로 2분할',
+    mode_vertical3: '세로 3분할',
+    mode_vertical4: '세로 4분할',
+    mode_horizontal2: '가로 2분할',
+    mode_horizontal3: '가로 3분할',
+    mode_horizontal4: '가로 4분할',
+    mode_custom: '사용자 정의',
+    // UI 텍스트
+    preview: 'PREVIEW',
+    settings: 'SETTINGS',
+    uploadHint: '이미지를 드래그하거나\n클릭하여 업로드',
+    splitPreview: '분할 결과 미리보기',
+    clickToDownload: '클릭하여 개별 다운로드',
+    splitDirection: '분할 방향',
+    step1: 'STEP 1: 임의수정',
+    step1Hint: '"선택"을 클릭하여 임의수정 범위를 드래그',
+    select: '선택',
+    confirm: '확정',
+    release: '해제',
+    step2: 'STEP 2: 텍스트 추가',
+    textPlaceholder: '텍스트 입력',
+    add: '추가',
+    cancel: '취소',
+    addText: '+ 텍스트 추가',
+    content: '내용',
+    font: '폰트',
+    size: '크기',
+    color: '색상',
+    stroke: '외곽선',
+    strokeWidth: '외곽선 두께',
+    deleteText: '텍스트 삭제',
+    textHint: '클릭: 선택 → 다시 클릭 후 드래그: 이동',
+    step3: 'STEP 3: 분할선 조정',
+    verticalLine: '세로선',
+    horizontalLine: '가로선',
+    dragHint: '분할선을 드래그하여 위치 조정',
+    equal: '등분',
+    free: '자유',
+    step4: 'STEP 4: 출력 설정',
+    quality: '품질',
+    step5: 'STEP 5: 다운로드',
+    downloadEach: '개별 다운로드',
+    downloadZip: 'ZIP 다운로드',
+    changeImage: '이미지 변경',
+  },
+  en: {
+    // 분할 모드
+    mode_cross4: '2×2',
+    mode_grid2x3: '2×3',
+    mode_grid3x2: '3×2',
+    mode_grid3x3: '3×3',
+    mode_grid3x4: '3×4',
+    mode_grid4x3: '4×3',
+    mode_grid4x4: '4×4',
+    mode_vertical2: 'Vertical 2',
+    mode_vertical3: 'Vertical 3',
+    mode_vertical4: 'Vertical 4',
+    mode_horizontal2: 'Horizontal 2',
+    mode_horizontal3: 'Horizontal 3',
+    mode_horizontal4: 'Horizontal 4',
+    mode_custom: 'Custom',
+    // UI 텍스트
+    preview: 'PREVIEW',
+    settings: 'SETTINGS',
+    uploadHint: 'Drag image here or\nclick to upload',
+    splitPreview: 'Split Preview',
+    clickToDownload: 'Click to download individually',
+    splitDirection: 'Split Mode',
+    step1: 'STEP 1: Crop',
+    step1Hint: 'Click "Select" to drag crop area',
+    select: 'Select',
+    confirm: 'Apply',
+    release: 'Reset',
+    step2: 'STEP 2: Add Text',
+    textPlaceholder: 'Enter text',
+    add: 'Add',
+    cancel: 'Cancel',
+    addText: '+ Add Text',
+    content: 'Content',
+    font: 'Font',
+    size: 'Size',
+    color: 'Color',
+    stroke: 'Stroke',
+    strokeWidth: 'Stroke Width',
+    deleteText: 'Delete Text',
+    textHint: 'Click: Select → Click again + drag: Move',
+    step3: 'STEP 3: Split Lines',
+    verticalLine: 'Vertical',
+    horizontalLine: 'Horizontal',
+    dragHint: 'Drag split lines to adjust position',
+    equal: 'Equal',
+    free: 'Free',
+    step4: 'STEP 4: Output Settings',
+    quality: 'Quality',
+    step5: 'STEP 5: Download',
+    downloadEach: 'Download Each',
+    downloadZip: 'ZIP Download',
+    changeImage: 'Change Image',
+  }
+}
+
 // 분할 모드 정의
 const SPLIT_MODES = {
   CROSS_4: { id: 'cross4', name: '2×2', icon: '┼', cols: 2, rows: 2 },
@@ -56,6 +168,10 @@ const SPLIT_MODES = {
 }
 
 function App() {
+  // 언어 설정
+  const [locale, setLocale] = useState('ko')
+  const t = TRANSLATIONS[locale]
+
   // 이미지 상태
   const [image, setImage] = useState(null)
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 })
@@ -984,6 +1100,18 @@ function App() {
             <h1>IMAGE SPLITTER</h1>
             <span className="header-credit">made by ATB</span>
           </div>
+          <button
+            className="lang-toggle-btn"
+            onClick={() => setLocale(locale === 'ko' ? 'en' : 'ko')}
+            title={locale === 'ko' ? 'Switch to English' : '한국어로 전환'}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M2 12h20"/>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </svg>
+            <span>{locale === 'ko' ? 'KO' : 'EN'}</span>
+          </button>
         </div>
       </header>
 
@@ -997,7 +1125,7 @@ function App() {
               <circle cx="8.5" cy="8.5" r="1.5"/>
               <polyline points="21,15 16,10 5,21"/>
             </svg>
-            <span>PREVIEW</span>
+            <span>{t.preview}</span>
           </div>
 
           <div
@@ -1014,7 +1142,7 @@ function App() {
                   <polyline points="17,8 12,3 7,8" />
                   <line x1="12" y1="3" x2="12" y2="15" />
                 </svg>
-                <p>이미지를 드래그하거나<br/>클릭하여 업로드</p>
+                <p>{t.uploadHint.split('\n').map((line, i) => <span key={i}>{line}<br/></span>)}</p>
               </div>
             ) : (
               <div className="canvas-wrapper">
@@ -1044,8 +1172,8 @@ function App() {
           {image && splitPieces.length > 0 && (
             <div className="split-preview">
               <div className="split-preview-header">
-                <span>분할 결과 미리보기</span>
-                <span className="preview-hint">클릭하여 개별 다운로드</span>
+                <span>{t.splitPreview}</span>
+                <span className="preview-hint">{t.clickToDownload}</span>
               </div>
               <div className="split-preview-grid" style={previewGridStyle}>
                 {splitPieces.map((piece, index) => (
@@ -1069,12 +1197,12 @@ function App() {
               <circle cx="12" cy="12" r="3"/>
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
             </svg>
-            <span>SETTINGS</span>
+            <span>{t.settings}</span>
           </div>
 
           {/* 분할 방향 */}
           <div className="setting-group">
-            <label className="setting-label">분할 방향</label>
+            <label className="setting-label">{t.splitDirection}</label>
             <div className="split-modes">
               {Object.values(SPLIT_MODES).map(mode => (
                 <button
@@ -1083,7 +1211,7 @@ function App() {
                   onClick={() => handleSplitModeChange(mode)}
                 >
                   <span className="mode-icon">{mode.icon}</span>
-                  <span className="mode-name">{mode.name}</span>
+                  <span className="mode-name">{t[`mode_${mode.id}`] || mode.name}</span>
                 </button>
               ))}
             </div>
@@ -1091,49 +1219,49 @@ function App() {
 
           {/* STEP 1: 임의수정 */}
           <div className="setting-group">
-            <label className="setting-label">STEP 1: 임의수정</label>
+            <label className="setting-label">{t.step1}</label>
             <div className="trim-buttons">
               <button
                 className={`trim-btn ${isTrimming ? 'active' : ''}`}
                 onClick={() => setIsTrimming(true)}
                 disabled={!image}
               >
-                선택
+                {t.select}
               </button>
               <button
                 className="trim-btn"
                 onClick={applyTrim}
                 disabled={!trimArea || trimArea.width === 0}
               >
-                확정
+                {t.confirm}
               </button>
               <button
                 className="trim-btn"
                 onClick={cancelTrim}
                 disabled={!appliedTrim && !isTrimming}
               >
-                해제
+                {t.release}
               </button>
             </div>
-            <p className="setting-hint">"선택"을 클릭하여 임의수정 범위를 드래그</p>
+            <p className="setting-hint">{t.step1Hint}</p>
           </div>
 
           {/* STEP 2: 텍스트 추가 */}
           <div className="setting-group">
-            <label className="setting-label">STEP 2: 텍스트 추가</label>
+            <label className="setting-label">{t.step2}</label>
             {isAddingText ? (
               <div className="text-input-row">
                 <input
                   type="text"
                   value={newTextInput}
                   onChange={(e) => setNewTextInput(e.target.value)}
-                  placeholder="텍스트 입력"
+                  placeholder={t.textPlaceholder}
                   className="text-input"
                   onKeyDown={(e) => e.key === 'Enter' && addTextOverlay()}
                   autoFocus
                 />
-                <button className="trim-btn" onClick={addTextOverlay}>추가</button>
-                <button className="trim-btn" onClick={() => setIsAddingText(false)}>취소</button>
+                <button className="trim-btn" onClick={addTextOverlay}>{t.add}</button>
+                <button className="trim-btn" onClick={() => setIsAddingText(false)}>{t.cancel}</button>
               </div>
             ) : (
               <button
@@ -1141,7 +1269,7 @@ function App() {
                 onClick={() => setIsAddingText(true)}
                 disabled={!image}
               >
-                + 텍스트 추가
+                {t.addText}
               </button>
             )}
 
@@ -1149,7 +1277,7 @@ function App() {
             {selectedText && (
               <div className="text-editor">
                 <div className="text-editor-row">
-                  <label>내용</label>
+                  <label>{t.content}</label>
                   <input
                     type="text"
                     value={selectedText.content}
@@ -1158,7 +1286,7 @@ function App() {
                   />
                 </div>
                 <div className="text-editor-row">
-                  <label>폰트</label>
+                  <label>{t.font}</label>
                   <select
                     value={selectedText.fontFamily}
                     onChange={(e) => updateSelectedText({ fontFamily: e.target.value })}
@@ -1172,7 +1300,7 @@ function App() {
                   </select>
                 </div>
                 <div className="text-editor-row">
-                  <label>크기</label>
+                  <label>{t.size}</label>
                   <input
                     type="text"
                     inputMode="numeric"
@@ -1195,13 +1323,13 @@ function App() {
                   <span>px</span>
                 </div>
                 <div className="text-editor-row">
-                  <label>색상</label>
+                  <label>{t.color}</label>
                   <input
                     type="color"
                     value={selectedText.color}
                     onChange={(e) => updateSelectedText({ color: e.target.value })}
                   />
-                  <label>외곽선</label>
+                  <label>{t.stroke}</label>
                   <input
                     type="color"
                     value={selectedText.strokeColor}
@@ -1209,7 +1337,7 @@ function App() {
                   />
                 </div>
                 <div className="text-editor-row">
-                  <label>외곽선 두께</label>
+                  <label>{t.strokeWidth}</label>
                   <input
                     type="range"
                     min="0"
@@ -1220,34 +1348,34 @@ function App() {
                   <span>{selectedText.strokeWidth}px</span>
                 </div>
                 <button className="delete-text-btn" onClick={deleteSelectedText}>
-                  텍스트 삭제
+                  {t.deleteText}
                 </button>
               </div>
             )}
 
             {textOverlays.length > 0 && (
-              <p className="setting-hint">클릭: 선택 → 다시 클릭 후 드래그: 이동</p>
+              <p className="setting-hint">{t.textHint}</p>
             )}
           </div>
 
           {/* STEP 3: 조정 모드 */}
           <div className="setting-group">
-            <label className="setting-label">STEP 3: 분할선 조정</label>
+            <label className="setting-label">{t.step3}</label>
             {splitMode.custom ? (
               <>
                 <div className="custom-lines-control">
                   <div className="line-control-row">
-                    <span className="line-label">세로선 ({splitLines.vertical.length})</span>
+                    <span className="line-label">{t.verticalLine} ({splitLines.vertical.length})</span>
                     <button className="line-btn" onClick={addVerticalLine} disabled={!image}>+</button>
                     <button className="line-btn" onClick={removeVerticalLine} disabled={!image || splitLines.vertical.length === 0}>−</button>
                   </div>
                   <div className="line-control-row">
-                    <span className="line-label">가로선 ({splitLines.horizontal.length})</span>
+                    <span className="line-label">{t.horizontalLine} ({splitLines.horizontal.length})</span>
                     <button className="line-btn" onClick={addHorizontalLine} disabled={!image}>+</button>
                     <button className="line-btn" onClick={removeHorizontalLine} disabled={!image || splitLines.horizontal.length === 0}>−</button>
                   </div>
                 </div>
-                <p className="setting-hint">분할선을 드래그하여 위치 조정</p>
+                <p className="setting-hint">{t.dragHint}</p>
               </>
             ) : (
               <>
@@ -1263,17 +1391,17 @@ function App() {
                       }
                     }}
                   >
-                    등분
+                    {t.equal}
                   </button>
                   <button
                     className={`toggle-btn ${!isEqualMode ? 'active' : ''}`}
                     onClick={() => setIsEqualMode(false)}
                   >
-                    자유
+                    {t.free}
                   </button>
                 </div>
                 {!isEqualMode && (
-                  <p className="setting-hint">분할선을 드래그하여 위치 조정</p>
+                  <p className="setting-hint">{t.dragHint}</p>
                 )}
               </>
             )}
@@ -1281,7 +1409,7 @@ function App() {
 
           {/* STEP 4: 출력 설정 */}
           <div className="setting-group">
-            <label className="setting-label">STEP 4: 출력 설정</label>
+            <label className="setting-label">{t.step4}</label>
             <div className="format-buttons">
               {['jpeg', 'png', 'webp'].map(format => (
                 <button
@@ -1295,7 +1423,7 @@ function App() {
             </div>
             {outputFormat !== 'png' && (
               <div className="quality-control">
-                <span>품질: {quality}%</span>
+                <span>{t.quality}: {quality}%</span>
                 <input
                   type="range"
                   min="10"
@@ -1309,21 +1437,21 @@ function App() {
 
           {/* 다운로드 버튼 */}
           <div className="setting-group">
-            <label className="setting-label">STEP 5: 다운로드</label>
+            <label className="setting-label">{t.step5}</label>
             <div className="download-buttons">
               <button
                 className="download-btn"
                 onClick={downloadAll}
                 disabled={!image}
               >
-                개별 다운로드
+                {t.downloadEach}
               </button>
               <button
                 className="download-btn primary"
                 onClick={downloadZip}
                 disabled={!image}
               >
-                ZIP 다운로드
+                {t.downloadZip}
               </button>
             </div>
           </div>
@@ -1335,7 +1463,7 @@ function App() {
                 className="change-image-btn"
                 onClick={() => fileInputRef.current?.click()}
               >
-                이미지 변경
+                {t.changeImage}
               </button>
             </div>
           )}
