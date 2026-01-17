@@ -912,7 +912,7 @@ function App() {
       // 분할선 그리기
       ctx.setLineDash([])
       ctx.strokeStyle = '#ff0000'
-      ctx.lineWidth = 8
+      ctx.lineWidth = 10
 
       splitLines.vertical.forEach(x => {
         ctx.beginPath()
