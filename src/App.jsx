@@ -62,12 +62,15 @@ const TRANSLATIONS = {
     splitPreview: '분할 결과 미리보기',
     clickToDownload: '클릭하여 개별 다운로드',
     splitDirection: '분할 방향',
+    step1_splitLines: 'STEP 1: 분할선 조정',
     step1: 'STEP 1: 임의수정',
+    step2_crop: 'STEP 2: 임의수정',
     step1Hint: '"선택"을 클릭하여 임의수정 범위를 드래그',
     select: '선택',
     confirm: '확정',
     release: '해제',
     step2: 'STEP 2: 텍스트 추가',
+    step3_text: 'STEP 3: 텍스트 추가',
     textPlaceholder: '텍스트 입력',
     add: '추가',
     cancel: '취소',
@@ -87,11 +90,14 @@ const TRANSLATIONS = {
     equal: '등분',
     free: '자유',
     step4: 'STEP 4: 출력 설정',
-    quality: '품질',
+    upscale: '업스케일링',
+    upscale1x: '원본',
+    upscale2x: '2배',
+    upscale4x: '4배',
     step5: 'STEP 5: 다운로드',
     downloadEach: '개별 다운로드',
-    downloadZip: 'ZIP 다운로드',
-    changeImage: '이미지 변경',
+    downloadZip: '전체 다운로드',
+    changeImage: '새로 시작',
   },
   en: {
     // 분할 모드
@@ -116,12 +122,15 @@ const TRANSLATIONS = {
     splitPreview: 'Split Preview',
     clickToDownload: 'Click to download individually',
     splitDirection: 'Split Mode',
+    step1_splitLines: 'STEP 1: Split Lines',
     step1: 'STEP 1: Crop',
+    step2_crop: 'STEP 2: Crop',
     step1Hint: 'Click "Select" to drag crop area',
     select: 'Select',
     confirm: 'Apply',
     release: 'Reset',
     step2: 'STEP 2: Add Text',
+    step3_text: 'STEP 3: Add Text',
     textPlaceholder: 'Enter text',
     add: 'Add',
     cancel: 'Cancel',
@@ -141,11 +150,14 @@ const TRANSLATIONS = {
     equal: 'Equal',
     free: 'Free',
     step4: 'STEP 4: Output Settings',
-    quality: 'Quality',
+    upscale: 'Upscaling',
+    upscale1x: '1x',
+    upscale2x: '2x',
+    upscale4x: '4x',
     step5: 'STEP 5: Download',
     downloadEach: 'Download Each',
-    downloadZip: 'ZIP Download',
-    changeImage: 'Change Image',
+    downloadZip: 'Download All',
+    changeImage: 'Start Over',
   }
 }
 
@@ -175,6 +187,7 @@ function App() {
   // 이미지 상태
   const [image, setImage] = useState(null)
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 })
+  const [originalFileName, setOriginalFileName] = useState('image')
 
   // 분할 설정
   const [splitMode, setSplitMode] = useState(SPLIT_MODES.CROSS_4)
@@ -189,7 +202,8 @@ function App() {
 
   // 출력 설정
   const [outputFormat, setOutputFormat] = useState('jpeg')
-  const [quality, setQuality] = useState(90)
+  const [upscale, setUpscale] = useState(1)
+  const [isDownloading, setIsDownloading] = useState(false)
 
   // 텍스트 오버레이 설정
   const [textOverlays, setTextOverlays] = useState([])
@@ -228,6 +242,10 @@ function App() {
 
   // 이미지 로드
   const loadImage = (file) => {
+    // 파일명에서 확장자 제거하고 공백을 언더스코어로 변환
+    const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '').replace(/\s+/g, '_')
+    setOriginalFileName(nameWithoutExt)
+
     const reader = new FileReader()
     reader.onload = (e) => {
       const img = new Image()
@@ -894,7 +912,7 @@ function App() {
       // 분할선 그리기
       ctx.setLineDash([])
       ctx.strokeStyle = '#ff0000'
-      ctx.lineWidth = 4
+      ctx.lineWidth = 8
 
       splitLines.vertical.forEach(x => {
         ctx.beginPath()
@@ -950,8 +968,8 @@ function App() {
     }
   }, [image, imageSize, splitLines, isTrimming, trimArea, appliedTrim, textOverlays, selectedTextIndex, fontLoadTrigger])
 
-  // 분할된 이미지 조각들 생성
-  const splitPieces = useMemo(() => {
+  // 분할 영역 정보만 계산 (가벼운 연산)
+  const splitRegions = useMemo(() => {
     if (!image) return []
 
     const sourceX = appliedTrim ? appliedTrim.x : 0
@@ -959,18 +977,16 @@ function App() {
     const sourceWidth = appliedTrim ? appliedTrim.width : imageSize.width
     const sourceHeight = appliedTrim ? appliedTrim.height : imageSize.height
 
-    // 원본 배열을 변경하지 않도록 복사 후 정렬
     const sortedVertical = [...splitLines.vertical].sort((a, b) => a - b)
     const sortedHorizontal = [...splitLines.horizontal].sort((a, b) => a - b)
 
-    // 유효한 범위 내의 선만 사용 (0과 sourceWidth/Height 사이)
     const validVertical = sortedVertical.filter(v => v > 0 && v < sourceWidth)
     const validHorizontal = sortedHorizontal.filter(h => h > 0 && h < sourceHeight)
 
     const verticalLines = [0, ...validVertical, sourceWidth]
     const horizontalLines = [0, ...validHorizontal, sourceHeight]
 
-    const pieces = []
+    const regions = []
 
     for (let row = 0; row < horizontalLines.length - 1; row++) {
       for (let col = 0; col < verticalLines.length - 1; col++) {
@@ -979,90 +995,174 @@ function App() {
         const w = verticalLines[col + 1] - x
         const h = horizontalLines[row + 1] - y
 
-        // 좌표와 크기가 유효한지 확인
         const finalX = Math.max(0, Math.min(x, sourceWidth))
         const finalY = Math.max(0, Math.min(y, sourceHeight))
         const finalW = Math.max(1, Math.min(w, sourceWidth - finalX))
         const finalH = Math.max(1, Math.min(h, sourceHeight - finalY))
 
         if (finalW > 0 && finalH > 0) {
-          const pieceCanvas = document.createElement('canvas')
-          pieceCanvas.width = finalW
-          pieceCanvas.height = finalH
-          const pieceCtx = pieceCanvas.getContext('2d')
-          pieceCtx.drawImage(image, sourceX + finalX, sourceY + finalY, finalW, finalH, 0, 0, finalW, finalH)
-
-          // 텍스트 오버레이 그리기 (클리핑으로 경계에서 잘림)
-          textOverlays.forEach((text) => {
-            const textX = text.x - finalX
-            const textY = text.y - finalY
-            const fontSize = text.fontSize || 12
-
-            // 클리핑 영역 설정 (조각 경계 내에서만 텍스트 표시)
-            pieceCtx.save()
-            pieceCtx.beginPath()
-            pieceCtx.rect(0, 0, finalW, finalH)
-            pieceCtx.clip()
-
-            pieceCtx.font = `${fontSize}px ${text.fontFamily}`
-            pieceCtx.textBaseline = 'bottom'
-
-            if (text.hasStroke && text.strokeWidth > 0) {
-              pieceCtx.strokeStyle = text.strokeColor
-              pieceCtx.lineWidth = text.strokeWidth
-              pieceCtx.strokeText(text.content, textX, textY)
-            }
-
-            pieceCtx.fillStyle = text.color
-            pieceCtx.fillText(text.content, textX, textY)
-
-            pieceCtx.restore()
-          })
-
-          pieces.push({
-            canvas: pieceCanvas,
-            dataUrl: pieceCanvas.toDataURL(`image/${outputFormat}`, quality / 100),
+          regions.push({
             name: `split_${row + 1}_${col + 1}`,
             row,
-            col
+            col,
+            sourceInfo: { sourceX, sourceY, finalX, finalY, finalW, finalH }
           })
         }
       }
     }
 
-    return pieces
-  }, [image, imageSize, splitLines, appliedTrim, outputFormat, quality, textOverlays, fontLoadTrigger])
+    return regions
+  }, [image, imageSize, splitLines, appliedTrim])
+
+  // 미리보기용 썸네일 생성 (최대 400px로 제한)
+  const splitPieces = useMemo(() => {
+    if (!image || splitRegions.length === 0) return []
+
+    const MAX_PREVIEW_SIZE = 400
+
+    return splitRegions.map(region => {
+      const { sourceX, sourceY, finalX, finalY, finalW, finalH } = region.sourceInfo
+
+      // 미리보기 크기 계산 (비율 유지, 최대 200px)
+      const scale = Math.min(1, MAX_PREVIEW_SIZE / Math.max(finalW, finalH))
+      const previewW = Math.round(finalW * scale)
+      const previewH = Math.round(finalH * scale)
+
+      const canvas = document.createElement('canvas')
+      canvas.width = previewW
+      canvas.height = previewH
+      const ctx = canvas.getContext('2d')
+
+      ctx.imageSmoothingEnabled = true
+      ctx.imageSmoothingQuality = 'medium'
+
+      ctx.drawImage(image, sourceX + finalX, sourceY + finalY, finalW, finalH, 0, 0, previewW, previewH)
+
+      // 텍스트 오버레이 (축소된 크기로)
+      textOverlays.forEach((text) => {
+        const textX = (text.x - finalX) * scale
+        const textY = (text.y - finalY) * scale
+        const fontSize = (text.fontSize || 12) * scale
+
+        ctx.save()
+        ctx.beginPath()
+        ctx.rect(0, 0, previewW, previewH)
+        ctx.clip()
+
+        ctx.font = `${fontSize}px ${text.fontFamily}`
+        ctx.textBaseline = 'bottom'
+
+        if (text.hasStroke && text.strokeWidth > 0) {
+          ctx.strokeStyle = text.strokeColor
+          ctx.lineWidth = text.strokeWidth * scale
+          ctx.strokeText(text.content, textX, textY)
+        }
+
+        ctx.fillStyle = text.color
+        ctx.fillText(text.content, textX, textY)
+
+        ctx.restore()
+      })
+
+      return {
+        ...region,
+        dataUrl: canvas.toDataURL('image/jpeg', 1.0)
+      }
+    })
+  }, [image, splitRegions, textOverlays, fontLoadTrigger])
+
+  // 업스케일된 이미지 생성 (다운로드용)
+  const createUpscaledImage = (piece) => {
+    const { sourceX, sourceY, finalX, finalY, finalW, finalH } = piece.sourceInfo
+
+    const canvas = document.createElement('canvas')
+    canvas.width = finalW * upscale
+    canvas.height = finalH * upscale
+    const ctx = canvas.getContext('2d')
+
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = 'high'
+
+    ctx.drawImage(image, sourceX + finalX, sourceY + finalY, finalW, finalH, 0, 0, finalW * upscale, finalH * upscale)
+
+    // 텍스트 오버레이 그리기
+    textOverlays.forEach((text) => {
+      const textX = (text.x - finalX) * upscale
+      const textY = (text.y - finalY) * upscale
+      const fontSize = (text.fontSize || 12) * upscale
+
+      ctx.save()
+      ctx.beginPath()
+      ctx.rect(0, 0, finalW * upscale, finalH * upscale)
+      ctx.clip()
+
+      ctx.font = `${fontSize}px ${text.fontFamily}`
+      ctx.textBaseline = 'bottom'
+
+      if (text.hasStroke && text.strokeWidth > 0) {
+        ctx.strokeStyle = text.strokeColor
+        ctx.lineWidth = text.strokeWidth * upscale
+        ctx.strokeText(text.content, textX, textY)
+      }
+
+      ctx.fillStyle = text.color
+      ctx.fillText(text.content, textX, textY)
+
+      ctx.restore()
+    })
+
+    return canvas.toDataURL(`image/${outputFormat}`, 0.92)
+  }
 
   // 개별 다운로드
-  const downloadPiece = (piece) => {
+  const downloadPiece = (piece, index) => {
     const extension = outputFormat === 'jpeg' ? 'jpg' : outputFormat
+    const fileName = `${originalFileName}_${index + 1}.${extension}`
     const link = document.createElement('a')
-    link.download = `${piece.name}.${extension}`
-    link.href = piece.dataUrl
+    link.download = fileName
+    // 업스케일링 적용하여 다운로드
+    link.href = upscale > 1 ? createUpscaledImage(piece) : piece.dataUrl
     link.click()
   }
 
   // 전체 다운로드
   const downloadAll = () => {
-    splitPieces.forEach(piece => downloadPiece(piece))
+    splitPieces.forEach((piece, index) => downloadPiece(piece, index))
   }
 
   // ZIP 다운로드
   const downloadZip = async () => {
-    const zip = new JSZip()
-    const extension = outputFormat === 'jpeg' ? 'jpg' : outputFormat
+    setIsDownloading(true)
 
-    for (const piece of splitPieces) {
-      const base64Data = piece.dataUrl.split(',')[1]
-      zip.file(`${piece.name}.${extension}`, base64Data, { base64: true })
+    try {
+      const zip = new JSZip()
+      const extension = outputFormat === 'jpeg' ? 'jpg' : outputFormat
+
+      // 비동기로 처리하여 UI 블로킹 방지
+      await new Promise(resolve => setTimeout(resolve, 10))
+
+      for (let i = 0; i < splitPieces.length; i++) {
+        const piece = splitPieces[i]
+        const dataUrl = upscale > 1 ? createUpscaledImage(piece) : piece.dataUrl
+        const base64Data = dataUrl.split(',')[1]
+        const fileName = `${originalFileName}_${i + 1}.${extension}`
+        zip.file(fileName, base64Data, { base64: true })
+
+        // 각 이미지 처리 후 UI 업데이트 기회 제공
+        if (i % 2 === 0) {
+          await new Promise(resolve => setTimeout(resolve, 0))
+        }
+      }
+
+      const blob = await zip.generateAsync({ type: 'blob' })
+      const link = document.createElement('a')
+      link.download = `${originalFileName}.zip`
+      link.href = URL.createObjectURL(blob)
+      link.click()
+      URL.revokeObjectURL(link.href)
+    } finally {
+      setIsDownloading(false)
     }
-
-    const blob = await zip.generateAsync({ type: 'blob' })
-    const link = document.createElement('a')
-    link.download = 'split_images.zip'
-    link.href = URL.createObjectURL(blob)
-    link.click()
-    URL.revokeObjectURL(link.href)
   }
 
   // 미리보기 그리드 레이아웃 계산
@@ -1096,8 +1196,16 @@ function App() {
       <header className="header">
         <div className="header-content">
           <div className="header-title">
-            <img src="/logo.svg" alt="Logo" className="header-logo" />
-            <h1>IMAGE SPLITTER</h1>
+            <img
+              src="/logo.svg"
+              alt="Logo"
+              className="header-logo clickable"
+              onClick={() => window.location.reload()}
+            />
+            <h1
+              className="clickable"
+              onClick={() => window.location.reload()}
+            >IMAGE SPLITTER</h1>
             <span className="header-credit">made by ATB</span>
           </div>
           <button
@@ -1180,7 +1288,7 @@ function App() {
                   <div
                     key={index}
                     className="split-preview-item"
-                    onClick={() => downloadPiece(piece)}
+                    onClick={() => downloadPiece(piece, index)}
                   >
                     <img src={piece.dataUrl} alt={piece.name} />
                   </div>
@@ -1217,9 +1325,51 @@ function App() {
             </div>
           </div>
 
-          {/* STEP 1: 임의수정 */}
+          {/* STEP 1: 분할선 조정 */}
           <div className="setting-group">
-            <label className="setting-label">{t.step1}</label>
+            <label className="setting-label">{t.step1_splitLines}</label>
+            {splitMode.custom ? (
+              <div className="custom-lines-control">
+                <div className="line-control-row">
+                  <span className="line-label">{t.verticalLine} ({splitLines.vertical.length})</span>
+                  <button className="line-btn" onClick={addVerticalLine} disabled={!image}>+</button>
+                  <button className="line-btn" onClick={removeVerticalLine} disabled={!image || splitLines.vertical.length === 0}>−</button>
+                </div>
+                <div className="line-control-row">
+                  <span className="line-label">{t.horizontalLine} ({splitLines.horizontal.length})</span>
+                  <button className="line-btn" onClick={addHorizontalLine} disabled={!image}>+</button>
+                  <button className="line-btn" onClick={removeHorizontalLine} disabled={!image || splitLines.horizontal.length === 0}>−</button>
+                </div>
+              </div>
+            ) : (
+              <div className="mode-toggle">
+                <button
+                  className={`toggle-btn ${isEqualMode ? 'active' : ''}`}
+                  onClick={() => {
+                    setIsEqualMode(true)
+                    if (image) {
+                      const w = appliedTrim ? appliedTrim.width : imageSize.width
+                      const h = appliedTrim ? appliedTrim.height : imageSize.height
+                      initializeSplitLines(splitMode, w, h)
+                    }
+                  }}
+                >
+                  {t.equal}
+                </button>
+                <button
+                  className={`toggle-btn ${!isEqualMode ? 'active' : ''}`}
+                  onClick={() => setIsEqualMode(false)}
+                >
+                  {t.free}
+                </button>
+              </div>
+            )}
+            <p className="setting-hint">{t.dragHint}</p>
+          </div>
+
+          {/* STEP 2: 임의수정 */}
+          <div className="setting-group">
+            <label className="setting-label">{t.step2_crop}</label>
             <div className="trim-buttons">
               <button
                 className={`trim-btn ${isTrimming ? 'active' : ''}`}
@@ -1246,9 +1396,9 @@ function App() {
             <p className="setting-hint">{t.step1Hint}</p>
           </div>
 
-          {/* STEP 2: 텍스트 추가 */}
+          {/* STEP 3: 텍스트 추가 */}
           <div className="setting-group">
-            <label className="setting-label">{t.step2}</label>
+            <label className="setting-label">{t.step3_text}</label>
             {isAddingText ? (
               <div className="text-input-row">
                 <input
@@ -1358,55 +1508,6 @@ function App() {
             )}
           </div>
 
-          {/* STEP 3: 조정 모드 */}
-          <div className="setting-group">
-            <label className="setting-label">{t.step3}</label>
-            {splitMode.custom ? (
-              <>
-                <div className="custom-lines-control">
-                  <div className="line-control-row">
-                    <span className="line-label">{t.verticalLine} ({splitLines.vertical.length})</span>
-                    <button className="line-btn" onClick={addVerticalLine} disabled={!image}>+</button>
-                    <button className="line-btn" onClick={removeVerticalLine} disabled={!image || splitLines.vertical.length === 0}>−</button>
-                  </div>
-                  <div className="line-control-row">
-                    <span className="line-label">{t.horizontalLine} ({splitLines.horizontal.length})</span>
-                    <button className="line-btn" onClick={addHorizontalLine} disabled={!image}>+</button>
-                    <button className="line-btn" onClick={removeHorizontalLine} disabled={!image || splitLines.horizontal.length === 0}>−</button>
-                  </div>
-                </div>
-                <p className="setting-hint">{t.dragHint}</p>
-              </>
-            ) : (
-              <>
-                <div className="mode-toggle">
-                  <button
-                    className={`toggle-btn ${isEqualMode ? 'active' : ''}`}
-                    onClick={() => {
-                      setIsEqualMode(true)
-                      if (image) {
-                        const w = appliedTrim ? appliedTrim.width : imageSize.width
-                        const h = appliedTrim ? appliedTrim.height : imageSize.height
-                        initializeSplitLines(splitMode, w, h)
-                      }
-                    }}
-                  >
-                    {t.equal}
-                  </button>
-                  <button
-                    className={`toggle-btn ${!isEqualMode ? 'active' : ''}`}
-                    onClick={() => setIsEqualMode(false)}
-                  >
-                    {t.free}
-                  </button>
-                </div>
-                {!isEqualMode && (
-                  <p className="setting-hint">{t.dragHint}</p>
-                )}
-              </>
-            )}
-          </div>
-
           {/* STEP 4: 출력 설정 */}
           <div className="setting-group">
             <label className="setting-label">{t.step4}</label>
@@ -1421,18 +1522,20 @@ function App() {
                 </button>
               ))}
             </div>
-            {outputFormat !== 'png' && (
-              <div className="quality-control">
-                <span>{t.quality}: {quality}%</span>
-                <input
-                  type="range"
-                  min="10"
-                  max="100"
-                  value={quality}
-                  onChange={(e) => setQuality(Number(e.target.value))}
-                />
+            <div className="upscale-control">
+              <span>{t.upscale}</span>
+              <div className="upscale-buttons">
+                {[1, 2, 4].map(scale => (
+                  <button
+                    key={scale}
+                    className={`upscale-btn ${upscale === scale ? 'active' : ''}`}
+                    onClick={() => setUpscale(scale)}
+                  >
+                    {t[`upscale${scale}x`]}
+                  </button>
+                ))}
               </div>
-            )}
+            </div>
           </div>
 
           {/* 다운로드 버튼 */}
@@ -1449,9 +1552,14 @@ function App() {
               <button
                 className="download-btn primary"
                 onClick={downloadZip}
-                disabled={!image}
+                disabled={!image || isDownloading}
               >
-                {t.downloadZip}
+                {isDownloading ? (
+                  <>
+                    <span className="loading-spinner"></span>
+                    처리중...
+                  </>
+                ) : t.downloadZip}
               </button>
             </div>
           </div>

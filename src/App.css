@@ -64,6 +64,15 @@
   width: auto;
 }
 
+.clickable {
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.clickable:hover {
+  opacity: 0.8;
+}
+
 .header-title h1 {
   font-size: 1.5rem;
   font-weight: 300;
@@ -376,8 +385,8 @@
   color: #ce93d8;
 }
 
-/* 품질 컨트롤 */
-.quality-control {
+/* 업스케일링 컨트롤 */
+.upscale-control {
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -386,22 +395,33 @@
   color: rgba(255, 255, 255, 0.6);
 }
 
-.quality-control input[type="range"] {
+.upscale-buttons {
+  display: flex;
+  gap: 0.5rem;
   flex: 1;
-  height: 4px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.1);
-  appearance: none;
-  cursor: pointer;
 }
 
-.quality-control input[type="range"]::-webkit-slider-thumb {
-  appearance: none;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #ab47bc;
+.upscale-btn {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.75rem;
+  font-weight: 600;
   cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.upscale-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.upscale-btn.active {
+  background: rgba(171, 71, 188, 0.2);
+  border-color: #ab47bc;
+  color: #ce93d8;
 }
 
 /* 다운로드 버튼 */
@@ -443,22 +463,43 @@
   box-shadow: 0 4px 12px rgba(79, 195, 247, 0.3);
 }
 
-/* 이미지 변경 버튼 */
+/* 로딩 스피너 */
+.loading-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 새로 시작 버튼 */
 .change-image-btn {
   width: 100%;
-  padding: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.875rem;
+  border: 1px solid rgba(255, 82, 82, 0.4);
   border-radius: 6px;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 0.813rem;
+  background: rgba(255, 82, 82, 0.1);
+  color: #ff6b6b;
+  font-size: 0.875rem;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .change-image-btn:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 82, 82, 0.2);
+  border-color: rgba(255, 82, 82, 0.6);
+  color: #ff8a8a;
 }
 
 /* 반응형 */
