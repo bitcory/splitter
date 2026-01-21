@@ -832,3 +832,268 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* 모드 토글 헤더 */
+.mode-toggle-header {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.mode-toggle-btn {
+  flex: 1;
+  padding: 0.625rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mode-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.mode-toggle-btn.active {
+  background: linear-gradient(135deg, #4fc3f7, #0288d1);
+  border-color: transparent;
+  color: #fff;
+}
+
+/* 합치기 모드 그리드 선택 */
+.merge-grid-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.merge-grid-btn {
+  padding: 0.625rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.813rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.merge-grid-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.merge-grid-btn.active {
+  background: rgba(79, 195, 247, 0.15);
+  border-color: #4fc3f7;
+  color: #4fc3f7;
+}
+
+/* 출력 크기 프리셋 */
+.size-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.size-preset-btn {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.size-preset-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.size-preset-btn.active {
+  background: rgba(79, 195, 247, 0.15);
+  border-color: #4fc3f7;
+  color: #4fc3f7;
+}
+
+/* 사용자 정의 크기 입력 */
+.custom-size-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.custom-size-row input {
+  width: 80px;
+  padding: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  font-size: 0.813rem;
+  text-align: center;
+}
+
+.custom-size-row span {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.813rem;
+}
+
+/* 합치기 캔버스 */
+.merge-canvas-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  padding: 1rem;
+}
+
+.merge-canvas {
+  max-width: 100%;
+  max-height: 60vh;
+  border-radius: 4px;
+  cursor: pointer;
+  background: #1a1a2e;
+}
+
+/* 합치기 미리보기 플레이스홀더 */
+.merge-placeholder {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.4);
+  padding: 2rem;
+}
+
+.merge-placeholder svg {
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+/* 셀 이미지 조정 */
+.cell-adjust-section {
+  padding: 0.75rem;
+  border: 1px solid rgba(79, 195, 247, 0.3);
+  border-radius: 8px;
+  background: rgba(79, 195, 247, 0.05);
+  margin-top: 0.75rem;
+}
+
+.cell-adjust-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.625rem;
+}
+
+.cell-adjust-row:last-child {
+  margin-bottom: 0;
+}
+
+.cell-adjust-row label {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  min-width: 40px;
+}
+
+.cell-adjust-row input[type="range"] {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  appearance: none;
+  cursor: pointer;
+}
+
+.cell-adjust-row input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #4fc3f7;
+  cursor: pointer;
+}
+
+.cell-adjust-row span {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  min-width: 45px;
+  text-align: right;
+}
+
+/* 퀵 액션 버튼 */
+.quick-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.quick-action-btn {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.quick-action-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.quick-action-btn.danger {
+  border-color: rgba(244, 67, 54, 0.3);
+  background: rgba(244, 67, 54, 0.1);
+  color: #f44336;
+}
+
+.quick-action-btn.danger:hover {
+  background: rgba(244, 67, 54, 0.2);
+}
+
+/* 합치기 다운로드 버튼 */
+.merge-download-btn {
+  width: 100%;
+  padding: 0.875rem;
+  border: none;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #4fc3f7, #0288d1);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.merge-download-btn:hover:not(:disabled) {
+  box-shadow: 0 4px 12px rgba(79, 195, 247, 0.3);
+}
+
+.merge-download-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 리셋 버튼 */
+.merge-reset-btn {
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.625rem;
+  border: 1px solid rgba(255, 82, 82, 0.4);
+  border-radius: 6px;
+  background: rgba(255, 82, 82, 0.1);
+  color: #ff6b6b;
+  font-size: 0.813rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.merge-reset-btn:hover {
+  background: rgba(255, 82, 82, 0.2);
+}

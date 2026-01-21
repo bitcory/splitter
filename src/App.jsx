@@ -37,9 +37,33 @@ const FONTS = [
   { name: 'SF Pro Display', value: 'SF Pro Display' },
 ]
 
+// 합치기 그리드 옵션
+const MERGE_GRID_OPTIONS = [
+  { id: '1x2', cols: 1, rows: 2, name: '1×2' },
+  { id: '2x1', cols: 2, rows: 1, name: '2×1' },
+  { id: '2x2', cols: 2, rows: 2, name: '2×2' },
+  { id: '2x3', cols: 2, rows: 3, name: '2×3' },
+  { id: '3x2', cols: 3, rows: 2, name: '3×2' },
+  { id: '3x3', cols: 3, rows: 3, name: '3×3' },
+  { id: '3x4', cols: 3, rows: 4, name: '3×4' },
+  { id: '4x3', cols: 4, rows: 3, name: '4×3' },
+  { id: '4x4', cols: 4, rows: 4, name: '4×4' },
+]
+
+// 출력 크기 프리셋
+const SIZE_PRESETS = [
+  { id: '1080x1080', width: 1080, height: 1080, name: '1080×1080' },
+  { id: '1080x1920', width: 1080, height: 1920, name: '1080×1920' },
+  { id: '1920x1080', width: 1920, height: 1080, name: '1920×1080' },
+  { id: '1920x1920', width: 1920, height: 1920, name: '1920×1920' },
+]
+
 // 다국어 텍스트
 const TRANSLATIONS = {
   ko: {
+    // 앱 모드
+    mode_split: '분할하기',
+    mode_merge: '합치기',
     // 분할 모드
     mode_cross4: '2×2',
     mode_grid2x3: '2×3',
@@ -98,8 +122,24 @@ const TRANSLATIONS = {
     downloadEach: '개별 다운로드',
     downloadZip: '전체 다운로드',
     changeImage: '새로 시작',
+    // 합치기 모드
+    mergeGridSelect: '그리드 선택',
+    mergeOutputSize: '출력 크기',
+    mergeCustomSize: '사용자 정의',
+    mergeCellAdjust: '이미지 조정',
+    mergeScale: '크기',
+    mergeCenterAlign: '중앙',
+    mergeFillCell: '채우기',
+    mergeFitCell: '맞추기',
+    mergeRemoveImage: '삭제',
+    mergeDownload: '합쳐진 이미지 다운로드',
+    mergeDropHint: '클릭하여 이미지 추가',
+    mergeResetAll: '모두 초기화',
   },
   en: {
+    // 앱 모드
+    mode_split: 'Split',
+    mode_merge: 'Merge',
     // 분할 모드
     mode_cross4: '2×2',
     mode_grid2x3: '2×3',
@@ -158,6 +198,19 @@ const TRANSLATIONS = {
     downloadEach: 'Download Each',
     downloadZip: 'Download All',
     changeImage: 'Start Over',
+    // 합치기 모드
+    mergeGridSelect: 'Grid Selection',
+    mergeOutputSize: 'Output Size',
+    mergeCustomSize: 'Custom',
+    mergeCellAdjust: 'Image Adjustment',
+    mergeScale: 'Scale',
+    mergeCenterAlign: 'Center',
+    mergeFillCell: 'Fill',
+    mergeFitCell: 'Fit',
+    mergeRemoveImage: 'Remove',
+    mergeDownload: 'Download Merged Image',
+    mergeDropHint: 'Click to add image',
+    mergeResetAll: 'Reset All',
   }
 }
 
@@ -183,6 +236,19 @@ function App() {
   // 언어 설정
   const [locale, setLocale] = useState('ko')
   const t = TRANSLATIONS[locale]
+
+  // 앱 모드 (split: 분할, merge: 합치기)
+  const [appMode, setAppMode] = useState('split')
+
+  // 합치기 모드 상태
+  const [mergeGrid, setMergeGrid] = useState({ cols: 2, rows: 2 })
+  const [mergeCanvasSize, setMergeCanvasSize] = useState({ width: 1080, height: 1080 })
+  const [cellImages, setCellImages] = useState({})
+  const [selectedCell, setSelectedCell] = useState(null)
+  const [cellDragState, setCellDragState] = useState(null)
+  const [snapGuides, setSnapGuides] = useState({ vertical: [], horizontal: [] })
+  const mergeCanvasRef = useRef(null)
+  const cellFileInputRef = useRef(null)
 
   // 이미지 상태
   const [image, setImage] = useState(null)
@@ -239,6 +305,332 @@ function App() {
 
     setSplitLines({ vertical, horizontal })
   }, [])
+
+  // ==================== 합치기 모드 함수들 ====================
+
+  // 셀 크기 계산
+  const cellSize = useMemo(() => ({
+    width: mergeCanvasSize.width / mergeGrid.cols,
+    height: mergeCanvasSize.height / mergeGrid.rows
+  }), [mergeCanvasSize, mergeGrid])
+
+  // 셀 인덱스 계산
+  const getCellIndex = (row, col) => row * mergeGrid.cols + col
+
+  // 셀 위치 계산
+  const getCellPosition = (index) => ({
+    row: Math.floor(index / mergeGrid.cols),
+    col: index % mergeGrid.cols
+  })
+
+  // 총 셀 개수
+  const totalCells = mergeGrid.cols * mergeGrid.rows
+
+  // 셀에 이미지 로드
+  const loadImageToCell = useCallback((file, cellIndex) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const img = new Image()
+      img.onload = () => {
+        // 기본 스케일: 셀을 채우도록 (cover 방식)
+        const scaleX = cellSize.width / img.width
+        const scaleY = cellSize.height / img.height
+        const initialScale = Math.max(scaleX, scaleY)
+
+        // 중앙 정렬 초기 위치
+        const scaledWidth = img.width * initialScale
+        const scaledHeight = img.height * initialScale
+        const initialX = (cellSize.width - scaledWidth) / 2
+        const initialY = (cellSize.height - scaledHeight) / 2
+
+        setCellImages(prev => ({
+          ...prev,
+          [cellIndex]: {
+            image: img,
+            originalSize: { width: img.width, height: img.height },
+            transform: {
+              x: initialX,
+              y: initialY,
+              scale: initialScale
+            }
+          }
+        }))
+        setSelectedCell(cellIndex)
+      }
+      img.src = e.target.result
+    }
+    reader.readAsDataURL(file)
+  }, [cellSize])
+
+  // 셀 이미지 삭제
+  const removeCellImage = useCallback((cellIndex) => {
+    setCellImages(prev => {
+      const newState = { ...prev }
+      delete newState[cellIndex]
+      return newState
+    })
+    if (selectedCell === cellIndex) {
+      setSelectedCell(null)
+    }
+  }, [selectedCell])
+
+  // 모든 셀 이미지 초기화
+  const resetAllCellImages = useCallback(() => {
+    setCellImages({})
+    setSelectedCell(null)
+  }, [])
+
+  // 스냅 임계값
+  const SNAP_THRESHOLD = 15
+
+  // 스냅 포인트 계산
+  const calculateSnapPoints = useCallback((cellIndex) => {
+    const points = {
+      vertical: [],
+      horizontal: []
+    }
+
+    // 셀 경계 스냅
+    points.vertical.push(0) // 셀 왼쪽
+    points.vertical.push(cellSize.width / 2) // 셀 중앙
+    points.vertical.push(cellSize.width) // 셀 오른쪽
+
+    points.horizontal.push(0) // 셀 상단
+    points.horizontal.push(cellSize.height / 2) // 셀 중앙
+    points.horizontal.push(cellSize.height) // 셀 하단
+
+    return points
+  }, [cellSize])
+
+  // 스냅 적용
+  const applySnap = useCallback((position, imageSize, snapPoints) => {
+    let snappedX = position.x
+    let snappedY = position.y
+    const guides = { vertical: [], horizontal: [] }
+
+    // 이미지의 주요 포인트들
+    const imagePoints = {
+      left: position.x,
+      centerX: position.x + imageSize.width / 2,
+      right: position.x + imageSize.width,
+      top: position.y,
+      centerY: position.y + imageSize.height / 2,
+      bottom: position.y + imageSize.height
+    }
+
+    // X축 스냅
+    for (const snapX of snapPoints.vertical) {
+      if (Math.abs(imagePoints.left - snapX) < SNAP_THRESHOLD) {
+        snappedX = snapX
+        guides.vertical.push(snapX)
+        break
+      }
+      if (Math.abs(imagePoints.centerX - snapX) < SNAP_THRESHOLD) {
+        snappedX = snapX - imageSize.width / 2
+        guides.vertical.push(snapX)
+        break
+      }
+      if (Math.abs(imagePoints.right - snapX) < SNAP_THRESHOLD) {
+        snappedX = snapX - imageSize.width
+        guides.vertical.push(snapX)
+        break
+      }
+    }
+
+    // Y축 스냅
+    for (const snapY of snapPoints.horizontal) {
+      if (Math.abs(imagePoints.top - snapY) < SNAP_THRESHOLD) {
+        snappedY = snapY
+        guides.horizontal.push(snapY)
+        break
+      }
+      if (Math.abs(imagePoints.centerY - snapY) < SNAP_THRESHOLD) {
+        snappedY = snapY - imageSize.height / 2
+        guides.horizontal.push(snapY)
+        break
+      }
+      if (Math.abs(imagePoints.bottom - snapY) < SNAP_THRESHOLD) {
+        snappedY = snapY - imageSize.height
+        guides.horizontal.push(snapY)
+        break
+      }
+    }
+
+    return { x: snappedX, y: snappedY, guides }
+  }, [SNAP_THRESHOLD])
+
+  // 셀 이미지 중앙 정렬
+  const centerCellImage = useCallback((cellIndex) => {
+    const cellImage = cellImages[cellIndex]
+    if (!cellImage) return
+
+    const scaledWidth = cellImage.originalSize.width * cellImage.transform.scale
+    const scaledHeight = cellImage.originalSize.height * cellImage.transform.scale
+
+    setCellImages(prev => ({
+      ...prev,
+      [cellIndex]: {
+        ...prev[cellIndex],
+        transform: {
+          ...prev[cellIndex].transform,
+          x: (cellSize.width - scaledWidth) / 2,
+          y: (cellSize.height - scaledHeight) / 2
+        }
+      }
+    }))
+  }, [cellImages, cellSize])
+
+  // 셀 채우기 (cover)
+  const fillCellImage = useCallback((cellIndex) => {
+    const cellImage = cellImages[cellIndex]
+    if (!cellImage) return
+
+    const scaleX = cellSize.width / cellImage.originalSize.width
+    const scaleY = cellSize.height / cellImage.originalSize.height
+    const newScale = Math.max(scaleX, scaleY)
+
+    const scaledWidth = cellImage.originalSize.width * newScale
+    const scaledHeight = cellImage.originalSize.height * newScale
+
+    setCellImages(prev => ({
+      ...prev,
+      [cellIndex]: {
+        ...prev[cellIndex],
+        transform: {
+          x: (cellSize.width - scaledWidth) / 2,
+          y: (cellSize.height - scaledHeight) / 2,
+          scale: newScale
+        }
+      }
+    }))
+  }, [cellImages, cellSize])
+
+  // 셀에 맞추기 (contain)
+  const fitCellImage = useCallback((cellIndex) => {
+    const cellImage = cellImages[cellIndex]
+    if (!cellImage) return
+
+    const scaleX = cellSize.width / cellImage.originalSize.width
+    const scaleY = cellSize.height / cellImage.originalSize.height
+    const newScale = Math.min(scaleX, scaleY)
+
+    const scaledWidth = cellImage.originalSize.width * newScale
+    const scaledHeight = cellImage.originalSize.height * newScale
+
+    setCellImages(prev => ({
+      ...prev,
+      [cellIndex]: {
+        ...prev[cellIndex],
+        transform: {
+          x: (cellSize.width - scaledWidth) / 2,
+          y: (cellSize.height - scaledHeight) / 2,
+          scale: newScale
+        }
+      }
+    }))
+  }, [cellImages, cellSize])
+
+  // 셀 이미지 스케일 변경
+  const updateCellScale = useCallback((cellIndex, newScale) => {
+    const cellImage = cellImages[cellIndex]
+    if (!cellImage) return
+
+    const oldScale = cellImage.transform.scale
+    const oldScaledWidth = cellImage.originalSize.width * oldScale
+    const oldScaledHeight = cellImage.originalSize.height * oldScale
+    const newScaledWidth = cellImage.originalSize.width * newScale
+    const newScaledHeight = cellImage.originalSize.height * newScale
+
+    // 중앙 기준 스케일 변경
+    const oldCenterX = cellImage.transform.x + oldScaledWidth / 2
+    const oldCenterY = cellImage.transform.y + oldScaledHeight / 2
+
+    setCellImages(prev => ({
+      ...prev,
+      [cellIndex]: {
+        ...prev[cellIndex],
+        transform: {
+          x: oldCenterX - newScaledWidth / 2,
+          y: oldCenterY - newScaledHeight / 2,
+          scale: newScale
+        }
+      }
+    }))
+  }, [cellImages])
+
+  // 합쳐진 이미지 생성
+  const createMergedImage = useCallback(() => {
+    const canvas = document.createElement('canvas')
+    canvas.width = mergeCanvasSize.width * upscale
+    canvas.height = mergeCanvasSize.height * upscale
+    const ctx = canvas.getContext('2d')
+
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = 'high'
+
+    // 배경 (흰색)
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+    const scaledCellSize = {
+      width: cellSize.width * upscale,
+      height: cellSize.height * upscale
+    }
+
+    // 각 셀 이미지 그리기
+    for (let row = 0; row < mergeGrid.rows; row++) {
+      for (let col = 0; col < mergeGrid.cols; col++) {
+        const index = getCellIndex(row, col)
+        const cellImage = cellImages[index]
+
+        if (cellImage) {
+          const cellX = col * scaledCellSize.width
+          const cellY = row * scaledCellSize.height
+
+          // 클리핑
+          ctx.save()
+          ctx.beginPath()
+          ctx.rect(cellX, cellY, scaledCellSize.width, scaledCellSize.height)
+          ctx.clip()
+
+          const t = cellImage.transform
+          const scaledW = cellImage.originalSize.width * t.scale * upscale
+          const scaledH = cellImage.originalSize.height * t.scale * upscale
+
+          ctx.drawImage(
+            cellImage.image,
+            cellX + t.x * upscale,
+            cellY + t.y * upscale,
+            scaledW,
+            scaledH
+          )
+
+          ctx.restore()
+        }
+      }
+    }
+
+    return canvas.toDataURL(`image/${outputFormat}`, 0.92)
+  }, [mergeCanvasSize, mergeGrid, cellImages, cellSize, upscale, outputFormat])
+
+  // 합쳐진 이미지 다운로드
+  const downloadMergedImage = useCallback(() => {
+    const dataUrl = createMergedImage()
+    const extension = outputFormat === 'jpeg' ? 'jpg' : outputFormat
+    const link = document.createElement('a')
+    link.download = `merged_${mergeGrid.cols}x${mergeGrid.rows}.${extension}`
+    link.href = dataUrl
+    link.click()
+  }, [createMergedImage, outputFormat, mergeGrid])
+
+  // 그리드 변경 시 이미지 재배치
+  const handleMergeGridChange = useCallback((newGrid) => {
+    setMergeGrid(newGrid)
+    // 그리드 변경 시 기존 이미지는 유지하되 선택 해제
+    setSelectedCell(null)
+  }, [])
+
+  // ==================== 합치기 모드 함수 끝 ====================
 
   // 이미지 로드
   const loadImage = (file) => {
@@ -968,6 +1360,265 @@ function App() {
     }
   }, [image, imageSize, splitLines, isTrimming, trimArea, appliedTrim, textOverlays, selectedTextIndex, fontLoadTrigger])
 
+  // 합치기 모드 캔버스 렌더링
+  useEffect(() => {
+    if (appMode !== 'merge' || !mergeCanvasRef.current) return
+
+    const canvas = mergeCanvasRef.current
+    const ctx = canvas.getContext('2d')
+
+    // 캔버스 크기 설정 (표시용 스케일 적용)
+    const displayScale = Math.min(1, 600 / Math.max(mergeCanvasSize.width, mergeCanvasSize.height))
+    canvas.width = mergeCanvasSize.width * displayScale
+    canvas.height = mergeCanvasSize.height * displayScale
+
+    ctx.scale(displayScale, displayScale)
+
+    // 배경
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, mergeCanvasSize.width, mergeCanvasSize.height)
+
+    // 각 셀 렌더링
+    for (let row = 0; row < mergeGrid.rows; row++) {
+      for (let col = 0; col < mergeGrid.cols; col++) {
+        const cellIndex = getCellIndex(row, col)
+        const cellX = col * cellSize.width
+        const cellY = row * cellSize.height
+
+        // 셀 클리핑 영역 설정
+        ctx.save()
+        ctx.beginPath()
+        ctx.rect(cellX, cellY, cellSize.width, cellSize.height)
+        ctx.clip()
+
+        const cellImage = cellImages[cellIndex]
+        if (cellImage) {
+          // 이미지 그리기
+          const t = cellImage.transform
+          const scaledW = cellImage.originalSize.width * t.scale
+          const scaledH = cellImage.originalSize.height * t.scale
+
+          ctx.drawImage(
+            cellImage.image,
+            cellX + t.x,
+            cellY + t.y,
+            scaledW,
+            scaledH
+          )
+        } else {
+          // 빈 셀 표시 (드롭 영역)
+          ctx.fillStyle = '#f5f5f5'
+          ctx.fillRect(cellX, cellY, cellSize.width, cellSize.height)
+
+          // + 아이콘
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)'
+          ctx.lineWidth = 3
+          const centerX = cellX + cellSize.width / 2
+          const centerY = cellY + cellSize.height / 2
+          const iconSize = Math.min(cellSize.width, cellSize.height) * 0.15
+
+          ctx.beginPath()
+          ctx.moveTo(centerX - iconSize, centerY)
+          ctx.lineTo(centerX + iconSize, centerY)
+          ctx.moveTo(centerX, centerY - iconSize)
+          ctx.lineTo(centerX, centerY + iconSize)
+          ctx.stroke()
+        }
+
+        ctx.restore()
+      }
+    }
+
+    // 그리드 선 그리기
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)'
+    ctx.lineWidth = 2
+
+    // 세로선
+    for (let col = 1; col < mergeGrid.cols; col++) {
+      const x = col * cellSize.width
+      ctx.beginPath()
+      ctx.moveTo(x, 0)
+      ctx.lineTo(x, mergeCanvasSize.height)
+      ctx.stroke()
+    }
+
+    // 가로선
+    for (let row = 1; row < mergeGrid.rows; row++) {
+      const y = row * cellSize.height
+      ctx.beginPath()
+      ctx.moveTo(0, y)
+      ctx.lineTo(mergeCanvasSize.width, y)
+      ctx.stroke()
+    }
+
+    // 선택된 셀 하이라이트
+    if (selectedCell !== null) {
+      const { row, col } = getCellPosition(selectedCell)
+      const cellX = col * cellSize.width
+      const cellY = row * cellSize.height
+
+      ctx.strokeStyle = '#4fc3f7'
+      ctx.lineWidth = 4
+      ctx.setLineDash([10, 5])
+      ctx.strokeRect(cellX + 2, cellY + 2, cellSize.width - 4, cellSize.height - 4)
+      ctx.setLineDash([])
+    }
+
+    // 스냅 가이드 라인
+    if (selectedCell !== null && (snapGuides.vertical.length > 0 || snapGuides.horizontal.length > 0)) {
+      const { row, col } = getCellPosition(selectedCell)
+      const cellX = col * cellSize.width
+      const cellY = row * cellSize.height
+
+      ctx.strokeStyle = '#00ff00'
+      ctx.lineWidth = 2
+      ctx.setLineDash([5, 5])
+
+      snapGuides.vertical.forEach(x => {
+        ctx.beginPath()
+        ctx.moveTo(cellX + x, cellY)
+        ctx.lineTo(cellX + x, cellY + cellSize.height)
+        ctx.stroke()
+      })
+
+      snapGuides.horizontal.forEach(y => {
+        ctx.beginPath()
+        ctx.moveTo(cellX, cellY + y)
+        ctx.lineTo(cellX + cellSize.width, cellY + y)
+        ctx.stroke()
+      })
+
+      ctx.setLineDash([])
+    }
+
+    // 외곽선
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)'
+    ctx.lineWidth = 2
+    ctx.strokeRect(0, 0, mergeCanvasSize.width, mergeCanvasSize.height)
+
+  }, [appMode, mergeCanvasSize, mergeGrid, cellImages, cellSize, selectedCell, snapGuides])
+
+  // 합치기 모드 마우스 핸들러
+  const handleMergeMouseDown = (e) => {
+    const canvas = mergeCanvasRef.current
+    if (!canvas) return
+
+    const rect = canvas.getBoundingClientRect()
+    const displayScale = Math.min(1, 600 / Math.max(mergeCanvasSize.width, mergeCanvasSize.height))
+    const scaleX = mergeCanvasSize.width / rect.width
+    const scaleY = mergeCanvasSize.height / rect.height
+
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY
+
+    const canvasX = (clientX - rect.left) * scaleX
+    const canvasY = (clientY - rect.top) * scaleY
+
+    // 클릭한 셀 찾기
+    const col = Math.floor(canvasX / cellSize.width)
+    const row = Math.floor(canvasY / cellSize.height)
+    const cellIndex = getCellIndex(row, col)
+
+    // 유효한 셀인지 확인
+    if (col >= 0 && col < mergeGrid.cols && row >= 0 && row < mergeGrid.rows) {
+      const cellImage = cellImages[cellIndex]
+
+      if (cellImage) {
+        // 이미지가 있는 셀 클릭: 선택 + 드래그 시작
+        setSelectedCell(cellIndex)
+
+        const localX = canvasX - col * cellSize.width
+        const localY = canvasY - row * cellSize.height
+
+        setCellDragState({
+          cellIndex,
+          startCoords: { x: localX, y: localY },
+          startTransform: { ...cellImage.transform }
+        })
+      } else {
+        // 빈 셀 클릭: 파일 선택 다이얼로그
+        setSelectedCell(cellIndex)
+        if (cellFileInputRef.current) {
+          cellFileInputRef.current.value = ''
+          cellFileInputRef.current.click()
+        }
+      }
+    }
+  }
+
+  const handleMergeMouseMove = (e) => {
+    if (!cellDragState) return
+
+    const canvas = mergeCanvasRef.current
+    if (!canvas) return
+
+    const rect = canvas.getBoundingClientRect()
+    const scaleX = mergeCanvasSize.width / rect.width
+    const scaleY = mergeCanvasSize.height / rect.height
+
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY
+
+    const canvasX = (clientX - rect.left) * scaleX
+    const canvasY = (clientY - rect.top) * scaleY
+
+    const { cellIndex, startCoords, startTransform } = cellDragState
+    const { col, row } = getCellPosition(cellIndex)
+
+    const localX = canvasX - col * cellSize.width
+    const localY = canvasY - row * cellSize.height
+
+    const dx = localX - startCoords.x
+    const dy = localY - startCoords.y
+
+    let newX = startTransform.x + dx
+    let newY = startTransform.y + dy
+
+    // 스냅 적용
+    const cellImage = cellImages[cellIndex]
+    if (cellImage) {
+      const scaledW = cellImage.originalSize.width * cellImage.transform.scale
+      const scaledH = cellImage.originalSize.height * cellImage.transform.scale
+
+      const snapPoints = calculateSnapPoints(cellIndex)
+      const snapResult = applySnap(
+        { x: newX, y: newY },
+        { width: scaledW, height: scaledH },
+        snapPoints
+      )
+
+      newX = snapResult.x
+      newY = snapResult.y
+      setSnapGuides(snapResult.guides)
+
+      // 상태 업데이트
+      setCellImages(prev => ({
+        ...prev,
+        [cellIndex]: {
+          ...prev[cellIndex],
+          transform: {
+            ...prev[cellIndex].transform,
+            x: newX,
+            y: newY
+          }
+        }
+      }))
+    }
+  }
+
+  const handleMergeMouseUp = () => {
+    setCellDragState(null)
+    setSnapGuides({ vertical: [], horizontal: [] })
+  }
+
+  // 셀 파일 선택 핸들러
+  const handleCellFileSelect = (e) => {
+    const file = e.target.files[0]
+    if (file && selectedCell !== null) {
+      loadImageToCell(file, selectedCell)
+    }
+  }
+
   // 분할 영역 정보만 계산 (가벼운 연산)
   const splitRegions = useMemo(() => {
     if (!image) return []
@@ -1236,64 +1887,93 @@ function App() {
             <span>{t.preview}</span>
           </div>
 
-          <div
-            className={`preview-area ${isDragging ? 'dragging' : ''}`}
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onClick={() => !image && fileInputRef.current?.click()}
-          >
-            {!image ? (
-              <div className="upload-placeholder">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="17,8 12,3 7,8" />
-                  <line x1="12" y1="3" x2="12" y2="15" />
-                </svg>
-                <p>{t.uploadHint.split('\n').map((line, i) => <span key={i}>{line}<br/></span>)}</p>
-              </div>
-            ) : (
-              <div className="canvas-wrapper">
-                <canvas
-                  ref={canvasRef}
-                  className="canvas"
-                  onMouseDown={handleMouseDown}
-                  onMouseMove={handleMouseMove}
-                  onMouseUp={handleMouseUp}
-                  onMouseLeave={handleMouseUp}
-                  onTouchStart={handleMouseDown}
-                  onTouchMove={handleMouseMove}
-                  onTouchEnd={handleMouseUp}
+          {appMode === 'split' ? (
+            <>
+              {/* 분할 모드 프리뷰 */}
+              <div
+                className={`preview-area ${isDragging ? 'dragging' : ''}`}
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onClick={() => !image && fileInputRef.current?.click()}
+              >
+                {!image ? (
+                  <div className="upload-placeholder">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="17,8 12,3 7,8" />
+                      <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                    <p>{t.uploadHint.split('\n').map((line, i) => <span key={i}>{line}<br/></span>)}</p>
+                  </div>
+                ) : (
+                  <div className="canvas-wrapper">
+                    <canvas
+                      ref={canvasRef}
+                      className="canvas"
+                      onMouseDown={handleMouseDown}
+                      onMouseMove={handleMouseMove}
+                      onMouseUp={handleMouseUp}
+                      onMouseLeave={handleMouseUp}
+                      onTouchStart={handleMouseDown}
+                      onTouchMove={handleMouseMove}
+                      onTouchEnd={handleMouseUp}
+                    />
+                  </div>
+                )}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                  style={{ display: 'none' }}
                 />
               </div>
-            )}
-            <input
-              type="file"
-              ref={fileInputRef}
-              accept="image/*"
-              onChange={handleFileSelect}
-              style={{ display: 'none' }}
-            />
-          </div>
 
-          {/* 분할 미리보기 */}
-          {image && splitPieces.length > 0 && (
-            <div className="split-preview">
-              <div className="split-preview-header">
-                <span>{t.splitPreview}</span>
-                <span className="preview-hint">{t.clickToDownload}</span>
-              </div>
-              <div className="split-preview-grid" style={previewGridStyle}>
-                {splitPieces.map((piece, index) => (
-                  <div
-                    key={index}
-                    className="split-preview-item"
-                    onClick={() => downloadPiece(piece, index)}
-                  >
-                    <img src={piece.dataUrl} alt={piece.name} />
+              {/* 분할 미리보기 */}
+              {image && splitPieces.length > 0 && (
+                <div className="split-preview">
+                  <div className="split-preview-header">
+                    <span>{t.splitPreview}</span>
+                    <span className="preview-hint">{t.clickToDownload}</span>
                   </div>
-                ))}
+                  <div className="split-preview-grid" style={previewGridStyle}>
+                    {splitPieces.map((piece, index) => (
+                      <div
+                        key={index}
+                        className="split-preview-item"
+                        onClick={() => downloadPiece(piece, index)}
+                      >
+                        <img src={piece.dataUrl} alt={piece.name} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            /* 합치기 모드 프리뷰 */
+            <div className="preview-area" style={{ cursor: 'default', border: 'none' }}>
+              <div className="merge-canvas-wrapper">
+                <canvas
+                  ref={mergeCanvasRef}
+                  className="merge-canvas"
+                  onMouseDown={handleMergeMouseDown}
+                  onMouseMove={handleMergeMouseMove}
+                  onMouseUp={handleMergeMouseUp}
+                  onMouseLeave={handleMergeMouseUp}
+                  onTouchStart={handleMergeMouseDown}
+                  onTouchMove={handleMergeMouseMove}
+                  onTouchEnd={handleMergeMouseUp}
+                />
               </div>
+              <input
+                type="file"
+                ref={cellFileInputRef}
+                accept="image/*"
+                onChange={handleCellFileSelect}
+                style={{ display: 'none' }}
+              />
             </div>
           )}
         </section>
@@ -1308,9 +1988,27 @@ function App() {
             <span>{t.settings}</span>
           </div>
 
-          {/* 분할 방향 */}
-          <div className="setting-group">
-            <label className="setting-label">{t.splitDirection}</label>
+          {/* 모드 토글 버튼 */}
+          <div className="mode-toggle-header">
+            <button
+              className={`mode-toggle-btn ${appMode === 'split' ? 'active' : ''}`}
+              onClick={() => setAppMode('split')}
+            >
+              {t.mode_split}
+            </button>
+            <button
+              className={`mode-toggle-btn ${appMode === 'merge' ? 'active' : ''}`}
+              onClick={() => setAppMode('merge')}
+            >
+              {t.mode_merge}
+            </button>
+          </div>
+
+          {appMode === 'split' ? (
+            <>
+              {/* 분할 방향 */}
+              <div className="setting-group">
+                <label className="setting-label">{t.splitDirection}</label>
             <div className="split-modes">
               {Object.values(SPLIT_MODES).map(mode => (
                 <button
@@ -1564,16 +2262,156 @@ function App() {
             </div>
           </div>
 
-          {/* 이미지 변경 버튼 */}
-          {image && (
-            <div className="setting-group">
-              <button
-                className="change-image-btn"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                {t.changeImage}
-              </button>
-            </div>
+              {/* 이미지 변경 버튼 */}
+              {image && (
+                <div className="setting-group">
+                  <button
+                    className="change-image-btn"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    {t.changeImage}
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              {/* 합치기 모드 설정 */}
+
+              {/* 그리드 선택 */}
+              <div className="setting-group">
+                <label className="setting-label">{t.mergeGridSelect}</label>
+                <div className="merge-grid-options">
+                  {MERGE_GRID_OPTIONS.map(option => (
+                    <button
+                      key={option.id}
+                      className={`merge-grid-btn ${mergeGrid.cols === option.cols && mergeGrid.rows === option.rows ? 'active' : ''}`}
+                      onClick={() => handleMergeGridChange(option)}
+                    >
+                      {option.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 출력 크기 */}
+              <div className="setting-group">
+                <label className="setting-label">{t.mergeOutputSize}</label>
+                <div className="size-presets">
+                  {SIZE_PRESETS.map(preset => (
+                    <button
+                      key={preset.id}
+                      className={`size-preset-btn ${mergeCanvasSize.width === preset.width && mergeCanvasSize.height === preset.height ? 'active' : ''}`}
+                      onClick={() => setMergeCanvasSize({ width: preset.width, height: preset.height })}
+                    >
+                      {preset.name}
+                    </button>
+                  ))}
+                </div>
+                <div className="custom-size-row">
+                  <input
+                    type="number"
+                    value={mergeCanvasSize.width}
+                    onChange={(e) => setMergeCanvasSize(prev => ({ ...prev, width: Math.max(100, Number(e.target.value)) }))}
+                    min="100"
+                    max="4096"
+                  />
+                  <span>×</span>
+                  <input
+                    type="number"
+                    value={mergeCanvasSize.height}
+                    onChange={(e) => setMergeCanvasSize(prev => ({ ...prev, height: Math.max(100, Number(e.target.value)) }))}
+                    min="100"
+                    max="4096"
+                  />
+                  <span>px</span>
+                </div>
+              </div>
+
+              {/* 선택된 셀 이미지 조정 */}
+              {selectedCell !== null && cellImages[selectedCell] && (
+                <div className="setting-group">
+                  <label className="setting-label">{t.mergeCellAdjust}</label>
+                  <div className="cell-adjust-section">
+                    <div className="cell-adjust-row">
+                      <label>{t.mergeScale}</label>
+                      <input
+                        type="range"
+                        min="0.1"
+                        max="3"
+                        step="0.01"
+                        value={cellImages[selectedCell].transform.scale}
+                        onChange={(e) => updateCellScale(selectedCell, Number(e.target.value))}
+                      />
+                      <span>{Math.round(cellImages[selectedCell].transform.scale * 100)}%</span>
+                    </div>
+                    <div className="quick-actions">
+                      <button className="quick-action-btn" onClick={() => centerCellImage(selectedCell)}>
+                        {t.mergeCenterAlign}
+                      </button>
+                      <button className="quick-action-btn" onClick={() => fillCellImage(selectedCell)}>
+                        {t.mergeFillCell}
+                      </button>
+                      <button className="quick-action-btn" onClick={() => fitCellImage(selectedCell)}>
+                        {t.mergeFitCell}
+                      </button>
+                      <button className="quick-action-btn danger" onClick={() => removeCellImage(selectedCell)}>
+                        {t.mergeRemoveImage}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 출력 설정 */}
+              <div className="setting-group">
+                <label className="setting-label">{t.step4}</label>
+                <div className="format-buttons">
+                  {['jpeg', 'png', 'webp'].map(format => (
+                    <button
+                      key={format}
+                      className={`format-btn ${outputFormat === format ? 'active' : ''}`}
+                      onClick={() => setOutputFormat(format)}
+                    >
+                      {format.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+                <div className="upscale-control">
+                  <span>{t.upscale}</span>
+                  <div className="upscale-buttons">
+                    {[1, 2, 4].map(scale => (
+                      <button
+                        key={scale}
+                        className={`upscale-btn ${upscale === scale ? 'active' : ''}`}
+                        onClick={() => setUpscale(scale)}
+                      >
+                        {t[`upscale${scale}x`]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* 다운로드 버튼 */}
+              <div className="setting-group">
+                <button
+                  className="merge-download-btn"
+                  onClick={downloadMergedImage}
+                  disabled={Object.keys(cellImages).length === 0}
+                >
+                  {t.mergeDownload}
+                </button>
+                {Object.keys(cellImages).length > 0 && (
+                  <button
+                    className="merge-reset-btn"
+                    onClick={resetAllCellImages}
+                  >
+                    {t.mergeResetAll}
+                  </button>
+                )}
+              </div>
+            </>
           )}
         </section>
       </main>
