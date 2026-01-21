@@ -37,25 +37,33 @@ const FONTS = [
   { name: 'SF Pro Display', value: 'SF Pro Display' },
 ]
 
-// 합치기 그리드 옵션
+// 합치기 그리드 옵션 (1~4 범위)
 const MERGE_GRID_OPTIONS = [
+  { id: '1x1', cols: 1, rows: 1, name: '1×1' },
   { id: '1x2', cols: 1, rows: 2, name: '1×2' },
+  { id: '1x3', cols: 1, rows: 3, name: '1×3' },
+  { id: '1x4', cols: 1, rows: 4, name: '1×4' },
   { id: '2x1', cols: 2, rows: 1, name: '2×1' },
   { id: '2x2', cols: 2, rows: 2, name: '2×2' },
   { id: '2x3', cols: 2, rows: 3, name: '2×3' },
+  { id: '2x4', cols: 2, rows: 4, name: '2×4' },
+  { id: '3x1', cols: 3, rows: 1, name: '3×1' },
   { id: '3x2', cols: 3, rows: 2, name: '3×2' },
   { id: '3x3', cols: 3, rows: 3, name: '3×3' },
   { id: '3x4', cols: 3, rows: 4, name: '3×4' },
+  { id: '4x1', cols: 4, rows: 1, name: '4×1' },
+  { id: '4x2', cols: 4, rows: 2, name: '4×2' },
   { id: '4x3', cols: 4, rows: 3, name: '4×3' },
   { id: '4x4', cols: 4, rows: 4, name: '4×4' },
 ]
 
 // 출력 크기 프리셋
 const SIZE_PRESETS = [
-  { id: '1080x1080', width: 1080, height: 1080, name: '1080×1080' },
-  { id: '1080x1920', width: 1080, height: 1920, name: '1080×1920' },
-  { id: '1920x1080', width: 1920, height: 1080, name: '1920×1080' },
-  { id: '1920x1920', width: 1920, height: 1920, name: '1920×1920' },
+  { id: '1:1', width: 1080, height: 1080, name: '1:1' },
+  { id: '9:16', width: 1080, height: 1920, name: '9:16' },
+  { id: '3:4', width: 1080, height: 1440, name: '3:4' },
+  { id: '4:3', width: 1440, height: 1080, name: '4:3' },
+  { id: '16:9', width: 1920, height: 1080, name: '16:9' },
 ]
 
 // 다국어 텍스트
@@ -124,6 +132,10 @@ const TRANSLATIONS = {
     changeImage: '새로 시작',
     // 합치기 모드
     mergeGridSelect: '그리드 선택',
+    mergeGridCustom: '사용자 정의',
+    mergeGridCols: '가로',
+    mergeGridRows: '세로',
+    mergeGridApply: '적용',
     mergeOutputSize: '출력 크기',
     mergeCustomSize: '사용자 정의',
     mergeCellAdjust: '이미지 조정',
@@ -200,6 +212,10 @@ const TRANSLATIONS = {
     changeImage: 'Start Over',
     // 합치기 모드
     mergeGridSelect: 'Grid Selection',
+    mergeGridCustom: 'Custom',
+    mergeGridCols: 'Cols',
+    mergeGridRows: 'Rows',
+    mergeGridApply: 'Apply',
     mergeOutputSize: 'Output Size',
     mergeCustomSize: 'Custom',
     mergeCellAdjust: 'Image Adjustment',
@@ -247,6 +263,14 @@ function App() {
   const [selectedCell, setSelectedCell] = useState(null)
   const [cellDragState, setCellDragState] = useState(null)
   const [snapGuides, setSnapGuides] = useState({ vertical: [], horizontal: [] })
+  const [customGridInput, setCustomGridInput] = useState({ cols: '', rows: '' })
+  const [isMergeDragging, setIsMergeDragging] = useState(false)
+  const [hoverCell, setHoverCell] = useState(null)
+  // 합치기 모드 텍스트 오버레이
+  const [mergeTextOverlays, setMergeTextOverlays] = useState([])
+  const [selectedMergeTextIndex, setSelectedMergeTextIndex] = useState(null)
+  const [mergeTextDragState, setMergeTextDragState] = useState(null)
+  const [newMergeTextInput, setNewMergeTextInput] = useState('')
   const mergeCanvasRef = useRef(null)
   const cellFileInputRef = useRef(null)
 
@@ -610,8 +634,24 @@ function App() {
       }
     }
 
+    // 텍스트 오버레이 그리기
+    mergeTextOverlays.forEach((text) => {
+      const fontSize = (text.fontSize || 12) * upscale
+      ctx.font = `${fontSize}px ${text.fontFamily}`
+      ctx.textBaseline = 'bottom'
+
+      if (text.hasStroke && text.strokeWidth > 0) {
+        ctx.strokeStyle = text.strokeColor
+        ctx.lineWidth = text.strokeWidth * upscale
+        ctx.strokeText(text.content, text.x * upscale, text.y * upscale)
+      }
+
+      ctx.fillStyle = text.color
+      ctx.fillText(text.content, text.x * upscale, text.y * upscale)
+    })
+
     return canvas.toDataURL(`image/${outputFormat}`, 0.92)
-  }, [mergeCanvasSize, mergeGrid, cellImages, cellSize, upscale, outputFormat])
+  }, [mergeCanvasSize, mergeGrid, cellImages, cellSize, upscale, outputFormat, mergeTextOverlays])
 
   // 합쳐진 이미지 다운로드
   const downloadMergedImage = useCallback(() => {
@@ -1201,6 +1241,107 @@ function App() {
     }
   }
 
+  // 합치기 모드 텍스트 추가
+  const addMergeTextOverlay = async () => {
+    if (!newMergeTextInput.trim()) return
+
+    const fontSize = 100
+    const fontFamily = 'Hakgyoansim Poster'
+
+    try {
+      await document.fonts.load(`${fontSize}px "${fontFamily}"`)
+    } catch (e) {}
+
+    const canvas = mergeCanvasRef.current
+    const ctx = canvas.getContext('2d')
+    ctx.font = `${fontSize}px ${fontFamily}`
+    const metrics = ctx.measureText(newMergeTextInput)
+    const textBoxWidth = metrics.width
+    const textBoxHeight = fontSize
+
+    const centerX = mergeCanvasSize.width / 2
+    const centerY = mergeCanvasSize.height / 2
+
+    const newText = {
+      content: newMergeTextInput,
+      x: centerX - textBoxWidth / 2,
+      y: centerY + textBoxHeight / 2,
+      fontSize: fontSize,
+      fontFamily: fontFamily,
+      color: '#ffffff',
+      strokeColor: '#000000',
+      strokeWidth: 5,
+      hasStroke: true
+    }
+    setMergeTextOverlays(prev => [...prev, newText])
+    setNewMergeTextInput('')
+    setSelectedMergeTextIndex(mergeTextOverlays.length)
+    setFontLoadTrigger(prev => prev + 1)
+  }
+
+  // 합치기 모드 텍스트 삭제
+  const deleteMergeText = () => {
+    if (selectedMergeTextIndex === null) return
+    const newOverlays = mergeTextOverlays.filter((_, i) => i !== selectedMergeTextIndex)
+    setMergeTextOverlays(newOverlays)
+    setSelectedMergeTextIndex(null)
+  }
+
+  // 합치기 모드 텍스트 업데이트
+  const updateMergeText = (updates) => {
+    if (selectedMergeTextIndex === null) return
+    const newOverlays = [...mergeTextOverlays]
+    newOverlays[selectedMergeTextIndex] = { ...newOverlays[selectedMergeTextIndex], ...updates }
+    setMergeTextOverlays(newOverlays)
+
+    if (updates.fontFamily) {
+      const testDiv = document.createElement('div')
+      testDiv.style.fontFamily = updates.fontFamily
+      testDiv.style.position = 'absolute'
+      testDiv.style.visibility = 'hidden'
+      testDiv.textContent = '폰트 로드 테스트 Font Load Test'
+      document.body.appendChild(testDiv)
+
+      document.fonts.load(`16px "${updates.fontFamily}"`).then(() => {
+        document.body.removeChild(testDiv)
+        setFontLoadTrigger(prev => prev + 1)
+      }).catch(() => {
+        document.body.removeChild(testDiv)
+        setFontLoadTrigger(prev => prev + 1)
+      })
+    }
+  }
+
+  // 합치기 모드 캔버스에 텍스트 그리기
+  const drawMergeTextOverlays = (ctx, drawHandles = true) => {
+    mergeTextOverlays.forEach((text, index) => {
+      const fontSize = text.fontSize || 12
+      ctx.font = `${fontSize}px ${text.fontFamily}`
+      ctx.textBaseline = 'bottom'
+
+      if (text.hasStroke && text.strokeWidth > 0) {
+        ctx.strokeStyle = text.strokeColor
+        ctx.lineWidth = text.strokeWidth
+        ctx.strokeText(text.content, text.x, text.y)
+      }
+
+      ctx.fillStyle = text.color
+      ctx.fillText(text.content, text.x, text.y)
+
+      if (index === selectedMergeTextIndex && drawHandles) {
+        const metrics = ctx.measureText(text.content)
+        const width = metrics.width
+        const height = fontSize
+
+        ctx.strokeStyle = '#4fc3f7'
+        ctx.lineWidth = 2
+        ctx.setLineDash([5, 5])
+        ctx.strokeRect(text.x - 5, text.y - height - 5, width + 10, height + 10)
+        ctx.setLineDash([])
+      }
+    })
+  }
+
   // 캔버스에 텍스트 그리기
   const drawTextOverlays = (ctx, offsetX = 0, offsetY = 0, drawHandles = true) => {
     textOverlays.forEach((text, index) => {
@@ -1451,6 +1592,20 @@ function App() {
       ctx.stroke()
     }
 
+    // 호버 셀 하이라이트 (드래그앤드롭 시)
+    if (hoverCell !== null && hoverCell !== selectedCell) {
+      const { row, col } = getCellPosition(hoverCell)
+      const cellX = col * cellSize.width
+      const cellY = row * cellSize.height
+
+      ctx.fillStyle = 'rgba(79, 195, 247, 0.3)'
+      ctx.fillRect(cellX, cellY, cellSize.width, cellSize.height)
+
+      ctx.strokeStyle = '#4fc3f7'
+      ctx.lineWidth = 3
+      ctx.strokeRect(cellX + 1, cellY + 1, cellSize.width - 2, cellSize.height - 2)
+    }
+
     // 선택된 셀 하이라이트
     if (selectedCell !== null) {
       const { row, col } = getCellPosition(selectedCell)
@@ -1496,7 +1651,40 @@ function App() {
     ctx.lineWidth = 2
     ctx.strokeRect(0, 0, mergeCanvasSize.width, mergeCanvasSize.height)
 
-  }, [appMode, mergeCanvasSize, mergeGrid, cellImages, cellSize, selectedCell, snapGuides])
+    // 텍스트 오버레이 그리기
+    drawMergeTextOverlays(ctx, true)
+
+  }, [appMode, mergeCanvasSize, mergeGrid, cellImages, cellSize, selectedCell, snapGuides, hoverCell, mergeTextOverlays, selectedMergeTextIndex, fontLoadTrigger])
+
+  // 합치기 모드 텍스트 클릭 체크
+  const getMergeClickedTextIndex = (coords) => {
+    const canvas = mergeCanvasRef.current
+    const ctx = canvas.getContext('2d')
+
+    for (let i = mergeTextOverlays.length - 1; i >= 0; i--) {
+      const text = mergeTextOverlays[i]
+      const fontSize = text.fontSize || 12
+      ctx.font = `${fontSize}px ${text.fontFamily}`
+      const metrics = ctx.measureText(text.content)
+
+      const bounds = {
+        x: text.x,
+        y: text.y - fontSize,
+        width: metrics.width,
+        height: fontSize
+      }
+
+      if (
+        coords.x >= bounds.x - 10 &&
+        coords.x <= bounds.x + bounds.width + 10 &&
+        coords.y >= bounds.y - 10 &&
+        coords.y <= bounds.y + bounds.height + 10
+      ) {
+        return i
+      }
+    }
+    return null
+  }
 
   // 합치기 모드 마우스 핸들러
   const handleMergeMouseDown = (e) => {
@@ -1513,6 +1701,26 @@ function App() {
 
     const canvasX = (clientX - rect.left) * scaleX
     const canvasY = (clientY - rect.top) * scaleY
+
+    // 텍스트 클릭 체크 먼저
+    const clickedTextIdx = getMergeClickedTextIndex({ x: canvasX, y: canvasY })
+    if (clickedTextIdx !== null) {
+      if (clickedTextIdx === selectedMergeTextIndex) {
+        // 이미 선택된 텍스트 클릭 -> 드래그 시작
+        setMergeTextDragState({
+          index: clickedTextIdx,
+          startCoords: { x: canvasX, y: canvasY },
+          startPos: { x: mergeTextOverlays[clickedTextIdx].x, y: mergeTextOverlays[clickedTextIdx].y }
+        })
+      } else {
+        // 새 텍스트 선택
+        setSelectedMergeTextIndex(clickedTextIdx)
+      }
+      return
+    }
+
+    // 텍스트 선택 해제
+    setSelectedMergeTextIndex(null)
 
     // 클릭한 셀 찾기
     const col = Math.floor(canvasX / cellSize.width)
@@ -1547,8 +1755,6 @@ function App() {
   }
 
   const handleMergeMouseMove = (e) => {
-    if (!cellDragState) return
-
     const canvas = mergeCanvasRef.current
     if (!canvas) return
 
@@ -1561,6 +1767,29 @@ function App() {
 
     const canvasX = (clientX - rect.left) * scaleX
     const canvasY = (clientY - rect.top) * scaleY
+
+    // 텍스트 드래그
+    if (mergeTextDragState) {
+      const dx = canvasX - mergeTextDragState.startCoords.x
+      const dy = canvasY - mergeTextDragState.startCoords.y
+
+      const newX = Math.max(0, Math.min(mergeCanvasSize.width, mergeTextDragState.startPos.x + dx))
+      const newY = Math.max(0, Math.min(mergeCanvasSize.height, mergeTextDragState.startPos.y + dy))
+
+      setMergeTextOverlays(prev => {
+        const newOverlays = [...prev]
+        newOverlays[mergeTextDragState.index] = {
+          ...newOverlays[mergeTextDragState.index],
+          x: newX,
+          y: newY
+        }
+        return newOverlays
+      })
+      return
+    }
+
+    // 셀 이미지 드래그
+    if (!cellDragState) return
 
     const { cellIndex, startCoords, startTransform } = cellDragState
     const { col, row } = getCellPosition(cellIndex)
@@ -1608,7 +1837,61 @@ function App() {
 
   const handleMergeMouseUp = () => {
     setCellDragState(null)
+    setMergeTextDragState(null)
     setSnapGuides({ vertical: [], horizontal: [] })
+  }
+
+  // 합치기 모드 드래그앤드롭 핸들러 - 셀 인덱스 계산 헬퍼
+  const getCellIndexFromEvent = (e) => {
+    const canvas = mergeCanvasRef.current
+    if (!canvas) return null
+
+    const rect = canvas.getBoundingClientRect()
+    // displayScale을 고려한 실제 좌표 계산
+    const scaleX = mergeCanvasSize.width / rect.width
+    const scaleY = mergeCanvasSize.height / rect.height
+    const x = (e.clientX - rect.left) * scaleX
+    const y = (e.clientY - rect.top) * scaleY
+
+    const col = Math.floor(x / cellSize.width)
+    const row = Math.floor(y / cellSize.height)
+
+    if (col >= 0 && col < mergeGrid.cols && row >= 0 && row < mergeGrid.rows) {
+      return row * mergeGrid.cols + col
+    }
+    return null
+  }
+
+  const handleMergeDragOver = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsMergeDragging(true)
+
+    const cellIndex = getCellIndexFromEvent(e)
+    setHoverCell(cellIndex)
+  }
+
+  const handleMergeDragLeave = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsMergeDragging(false)
+    setHoverCell(null)
+  }
+
+  const handleMergeDrop = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsMergeDragging(false)
+    setHoverCell(null)
+
+    const file = e.dataTransfer.files[0]
+    if (!file || !file.type.startsWith('image/')) return
+
+    const cellIndex = getCellIndexFromEvent(e)
+    if (cellIndex !== null) {
+      loadImageToCell(file, cellIndex)
+      setSelectedCell(cellIndex)
+    }
   }
 
   // 셀 파일 선택 핸들러
@@ -1953,7 +2236,13 @@ function App() {
             </>
           ) : (
             /* 합치기 모드 프리뷰 */
-            <div className="preview-area" style={{ cursor: 'default', border: 'none' }}>
+            <div
+              className={`preview-area ${isMergeDragging ? 'dragging' : ''}`}
+              style={{ cursor: 'default', border: isMergeDragging ? '2px dashed #4fc3f7' : 'none' }}
+              onDragOver={handleMergeDragOver}
+              onDragLeave={handleMergeDragLeave}
+              onDrop={handleMergeDrop}
+            >
               <div className="merge-canvas-wrapper">
                 <canvas
                   ref={mergeCanvasRef}
@@ -2292,6 +2581,41 @@ function App() {
                     </button>
                   ))}
                 </div>
+                {/* 사용자 정의 그리드 입력 */}
+                <div className="custom-grid-row">
+                  <span>{t.mergeGridCustom}:</span>
+                  <input
+                    type="number"
+                    value={customGridInput.cols}
+                    onChange={(e) => setCustomGridInput(prev => ({ ...prev, cols: e.target.value }))}
+                    placeholder="1-10"
+                    min="1"
+                    max="10"
+                  />
+                  <span>×</span>
+                  <input
+                    type="number"
+                    value={customGridInput.rows}
+                    onChange={(e) => setCustomGridInput(prev => ({ ...prev, rows: e.target.value }))}
+                    placeholder="1-10"
+                    min="1"
+                    max="10"
+                  />
+                  <button
+                    className="custom-grid-apply-btn"
+                    onClick={() => {
+                      const cols = Math.max(1, Math.min(10, Number(customGridInput.cols) || 1))
+                      const rows = Math.max(1, Math.min(10, Number(customGridInput.rows) || 1))
+                      if (customGridInput.cols && customGridInput.rows) {
+                        setMergeGrid({ cols, rows })
+                        setSelectedCell(null)
+                      }
+                    }}
+                    disabled={!customGridInput.cols || !customGridInput.rows}
+                  >
+                    {t.mergeGridApply}
+                  </button>
+                </div>
               </div>
 
               {/* 출력 크기 */}
@@ -2362,6 +2686,112 @@ function App() {
                   </div>
                 </div>
               )}
+
+              {/* 텍스트 추가 */}
+              <div className="setting-group">
+                <label className="setting-label">{t.step2}</label>
+                <div className="text-input-row">
+                  <input
+                    type="text"
+                    className="text-input"
+                    placeholder={t.textPlaceholder}
+                    value={newMergeTextInput}
+                    onChange={(e) => setNewMergeTextInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addMergeTextOverlay()}
+                  />
+                  <button className="trim-btn" onClick={addMergeTextOverlay}>{t.add}</button>
+                </div>
+
+                {/* 텍스트 목록 */}
+                {mergeTextOverlays.length > 0 && (
+                  <div className="text-list">
+                    {mergeTextOverlays.map((text, index) => (
+                      <div
+                        key={index}
+                        className={`text-item ${selectedMergeTextIndex === index ? 'selected' : ''}`}
+                        onClick={() => setSelectedMergeTextIndex(index)}
+                      >
+                        <span className="text-item-content">{text.content}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* 선택된 텍스트 편집 */}
+                {selectedMergeTextIndex !== null && mergeTextOverlays[selectedMergeTextIndex] && (
+                  <div className="text-editor">
+                    <div className="text-editor-row">
+                      <label>{t.content}</label>
+                      <input
+                        type="text"
+                        value={mergeTextOverlays[selectedMergeTextIndex].content}
+                        onChange={(e) => updateMergeText({ content: e.target.value })}
+                      />
+                    </div>
+                    <div className="text-editor-row">
+                      <label>{t.font}</label>
+                      <select
+                        className="font-select"
+                        value={mergeTextOverlays[selectedMergeTextIndex].fontFamily}
+                        onChange={(e) => updateMergeText({ fontFamily: e.target.value })}
+                      >
+                        <option value="Hakgyoansim Poster">학교안심 포스터</option>
+                        <option value="SokchoBadaDotum">속초바다돋움</option>
+                        <option value="Sandoll Greta Sans KR">그레타 산스</option>
+                        <option value="Sandoll Greta Sans Display">그레타 산스 Display</option>
+                        <option value="TheJamsil">잠실체</option>
+                        <option value="YUniverse">유니버스</option>
+                        <option value="GangwonEduPower">강원교육체</option>
+                        <option value="HSSanTokki">산토끼</option>
+                        <option value="Freesentation">프리젠테이션</option>
+                        <option value="SOYO Maple">소요 메이플</option>
+                        <option value="Pretendard Variable">Pretendard</option>
+                        <option value="sans-serif">Sans-serif</option>
+                        <option value="Arial">Arial</option>
+                      </select>
+                    </div>
+                    <div className="text-editor-row">
+                      <label>{t.size}</label>
+                      <input
+                        type="number"
+                        className="size-input"
+                        value={mergeTextOverlays[selectedMergeTextIndex].fontSize}
+                        onChange={(e) => updateMergeText({ fontSize: Number(e.target.value) })}
+                        min="10"
+                        max="500"
+                      />
+                    </div>
+                    <div className="text-editor-row">
+                      <label>{t.color}</label>
+                      <input
+                        type="color"
+                        value={mergeTextOverlays[selectedMergeTextIndex].color}
+                        onChange={(e) => updateMergeText({ color: e.target.value })}
+                      />
+                      <label>{t.stroke}</label>
+                      <input
+                        type="color"
+                        value={mergeTextOverlays[selectedMergeTextIndex].strokeColor}
+                        onChange={(e) => updateMergeText({ strokeColor: e.target.value })}
+                      />
+                    </div>
+                    <div className="text-editor-row">
+                      <label>{t.strokeWidth}</label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="20"
+                        value={mergeTextOverlays[selectedMergeTextIndex].strokeWidth}
+                        onChange={(e) => updateMergeText({ strokeWidth: Number(e.target.value) })}
+                      />
+                      <span>{mergeTextOverlays[selectedMergeTextIndex].strokeWidth}px</span>
+                    </div>
+                    <button className="delete-text-btn" onClick={deleteMergeText}>
+                      {t.deleteText}
+                    </button>
+                  </div>
+                )}
+              </div>
 
               {/* 출력 설정 */}
               <div className="setting-group">
