@@ -1952,7 +1952,7 @@ function App() {
   const splitPieces = useMemo(() => {
     if (!image || splitRegions.length === 0) return []
 
-    const MAX_PREVIEW_SIZE = 400
+    const MAX_PREVIEW_SIZE = 800
 
     return splitRegions.map(region => {
       const { sourceX, sourceY, finalX, finalY, finalW, finalH } = region.sourceInfo
@@ -1968,7 +1968,7 @@ function App() {
       const ctx = canvas.getContext('2d')
 
       ctx.imageSmoothingEnabled = true
-      ctx.imageSmoothingQuality = 'medium'
+      ctx.imageSmoothingQuality = 'high'
 
       ctx.drawImage(image, sourceX + finalX, sourceY + finalY, finalW, finalH, 0, 0, previewW, previewH)
 
@@ -2054,8 +2054,8 @@ function App() {
     const fileName = `${originalFileName}_${index + 1}.${extension}`
     const link = document.createElement('a')
     link.download = fileName
-    // 업스케일링 적용하여 다운로드
-    link.href = upscale > 1 ? createUpscaledImage(piece) : piece.dataUrl
+    // 원본 해상도로 다운로드 (업스케일링 적용)
+    link.href = createUpscaledImage(piece)
     link.click()
   }
 
@@ -2077,7 +2077,7 @@ function App() {
 
       for (let i = 0; i < splitPieces.length; i++) {
         const piece = splitPieces[i]
-        const dataUrl = upscale > 1 ? createUpscaledImage(piece) : piece.dataUrl
+        const dataUrl = createUpscaledImage(piece)
         const base64Data = dataUrl.split(',')[1]
         const fileName = `${originalFileName}_${i + 1}.${extension}`
         zip.file(fileName, base64Data, { base64: true })
