@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import JSZip from 'jszip'
+import { removeBackground } from '@imgly/background-removal'
 import './App.css'
 import './fonts.css'
 
@@ -72,6 +73,8 @@ const TRANSLATIONS = {
     // 앱 모드
     mode_split: '분할하기',
     mode_merge: '합치기',
+    mode_removebg: '배경제거',
+    mode_videosplit: '영상분할',
     // 분할 모드
     mode_cross4: '2×2',
     mode_grid2x3: '2×3',
@@ -147,11 +150,36 @@ const TRANSLATIONS = {
     mergeDownload: '합쳐진 이미지 다운로드',
     mergeDropHint: '클릭하여 이미지 추가',
     mergeResetAll: '모두 초기화',
+    // 배경제거 모드
+    removebg_upload: '이미지를 업로드하세요',
+    removebg_processing: '배경 제거 중...',
+    removebg_download: '다운로드',
+    removebg_reset: '새로 시작',
+    removebg_original: '원본',
+    removebg_result: '결과',
+    // 영상분할 모드
+    videosplit_upload: '동영상을 업로드하세요',
+    videosplit_info: '영상 정보',
+    videosplit_duration: '길이',
+    videosplit_resolution: '해상도',
+    videosplit_gridSelect: '그리드 선택',
+    videosplit_processing: '영상 분할 중...',
+    videosplit_downloadEach: '개별 다운로드',
+    videosplit_downloadZip: 'ZIP 다운로드',
+    videosplit_reset: '새로 시작',
+    videosplit_preview: '분할 미리보기',
+    videosplit_loading: 'FFmpeg 로딩 중...',
+    videosplit_loadingHint: '처음 사용 시 약 25MB를 다운로드합니다',
+    videosplit_piece: '조각',
+    videosplit_split: '분할 실행',
+    videosplit_fileTooLarge: '파일 크기가 500MB를 초과합니다',
   },
   en: {
     // 앱 모드
     mode_split: 'Split',
     mode_merge: 'Merge',
+    mode_removebg: 'Remove BG',
+    mode_videosplit: 'Video Split',
     // 분할 모드
     mode_cross4: '2×2',
     mode_grid2x3: '2×3',
@@ -227,6 +255,29 @@ const TRANSLATIONS = {
     mergeDownload: 'Download Merged Image',
     mergeDropHint: 'Click to add image',
     mergeResetAll: 'Reset All',
+    // 배경제거 모드
+    removebg_upload: 'Upload an image',
+    removebg_processing: 'Removing background...',
+    removebg_download: 'Download',
+    removebg_reset: 'Reset',
+    removebg_original: 'Original',
+    removebg_result: 'Result',
+    // 영상분할 모드
+    videosplit_upload: 'Upload a video',
+    videosplit_info: 'Video Info',
+    videosplit_duration: 'Duration',
+    videosplit_resolution: 'Resolution',
+    videosplit_gridSelect: 'Grid Selection',
+    videosplit_processing: 'Splitting video...',
+    videosplit_downloadEach: 'Download Each',
+    videosplit_downloadZip: 'Download ZIP',
+    videosplit_reset: 'Start Over',
+    videosplit_preview: 'Split Preview',
+    videosplit_loading: 'Loading FFmpeg...',
+    videosplit_loadingHint: 'Downloads ~25MB on first use',
+    videosplit_piece: 'piece',
+    videosplit_split: 'Split Video',
+    videosplit_fileTooLarge: 'File size exceeds 500MB limit',
   }
 }
 
@@ -273,6 +324,31 @@ function App() {
   const [newMergeTextInput, setNewMergeTextInput] = useState('')
   const mergeCanvasRef = useRef(null)
   const cellFileInputRef = useRef(null)
+
+  // 배경제거 모드 상태
+  const [removeBgImage, setRemoveBgImage] = useState(null)
+  const [removeBgOriginalUrl, setRemoveBgOriginalUrl] = useState(null)
+  const [removeBgResult, setRemoveBgResult] = useState(null)
+  const [isRemovingBg, setIsRemovingBg] = useState(false)
+  const [removeBgProgress, setRemoveBgProgress] = useState(0)
+  const removeBgFileInputRef = useRef(null)
+
+  // 영상분할 모드 상태
+  const [videoFile, setVideoFile] = useState(null)
+  const [videoUrl, setVideoUrl] = useState(null)
+  const [videoMeta, setVideoMeta] = useState(null)
+  const [videoSplitMode, setVideoSplitMode] = useState(SPLIT_MODES.CROSS_4)
+  const [videoSplitLines, setVideoSplitLines] = useState({ vertical: [], horizontal: [] })
+  const [videoDragLine, setVideoDragLine] = useState(null) // { type: 'vertical'|'horizontal', index }
+  const [videoSplitPieces, setVideoSplitPieces] = useState([])
+  const [isFFmpegLoaded, setIsFFmpegLoaded] = useState(false)
+  const [isFFmpegLoading, setIsFFmpegLoading] = useState(false)
+  const [isVideoProcessing, setIsVideoProcessing] = useState(false)
+  const [videoProcessingProgress, setVideoProcessingProgress] = useState(0)
+  const videoRef = useRef(null)
+  const videoCanvasRef = useRef(null)
+  const ffmpegRef = useRef(null)
+  const videoFileInputRef = useRef(null)
 
   // 이미지 상태
   const [image, setImage] = useState(null)
@@ -892,6 +968,7 @@ function App() {
       const text = textOverlays[selectedTextIndex]
       const handle = getTextResizeHandle(coords, text, ctx)
       if (handle) {
+        if (e.cancelable) e.preventDefault()
         setTextResizeState({
           index: selectedTextIndex,
           handle,
@@ -905,6 +982,7 @@ function App() {
     // 텍스트 클릭 체크
     const clickedTextIdx = getClickedTextIndex(coords)
     if (clickedTextIdx !== null) {
+      if (e.cancelable) e.preventDefault()
       // 리사이즈 핸들 체크
       const text = textOverlays[clickedTextIdx]
       const handle = getTextResizeHandle(coords, text, ctx)
@@ -937,6 +1015,7 @@ function App() {
 
     // 임의수정 모드
     if (isTrimming) {
+      if (e.cancelable) e.preventDefault()
       if (trimArea) {
         const handle = getTrimHandle(coords, trimArea)
         if (handle) {
@@ -960,6 +1039,7 @@ function App() {
 
       for (let i = 0; i < splitLines.vertical.length; i++) {
         if (Math.abs(coords.x - splitLines.vertical[i]) < threshold) {
+          if (e.cancelable) e.preventDefault()
           setDragLineIndex(i)
           setDragLineType('vertical')
           return
@@ -968,6 +1048,7 @@ function App() {
 
       for (let i = 0; i < splitLines.horizontal.length; i++) {
         if (Math.abs(coords.y - splitLines.horizontal[i]) < threshold) {
+          if (e.cancelable) e.preventDefault()
           setDragLineIndex(i)
           setDragLineType('horizontal')
           return
@@ -979,6 +1060,13 @@ function App() {
   // 마우스 이동 핸들러
   const handleMouseMove = (e) => {
     if (!image) return
+
+    // 드래그 중이면 터치 스크롤 방지
+    const isDraggingAnything = textResizeState || textDragState || trimDragState || dragLineIndex !== null
+    if (isDraggingAnything && e.cancelable) {
+      e.preventDefault()
+    }
+
     const canvas = canvasRef.current
     const coords = getCanvasCoords(e, canvas)
     const currentWidth = appliedTrim ? appliedTrim.width : imageSize.width
@@ -1107,7 +1195,7 @@ function App() {
 
   const isInsideTrimArea = (coords, area) => {
     return coords.x >= area.x && coords.x <= area.x + area.width &&
-           coords.y >= area.y && coords.y <= area.y + area.height
+      coords.y >= area.y && coords.y <= area.y + area.height
   }
 
   const resizeTrimArea = (startArea, handle, coords, startCoords) => {
@@ -1250,7 +1338,7 @@ function App() {
 
     try {
       await document.fonts.load(`${fontSize}px "${fontFamily}"`)
-    } catch (e) {}
+    } catch (e) { }
 
     const canvas = mergeCanvasRef.current
     const ctx = canvas.getContext('2d')
@@ -1438,7 +1526,7 @@ function App() {
           { x: trimArea.x + trimArea.width, y: trimArea.y + trimArea.height },
         ]
         handles.forEach(h => {
-          ctx.fillRect(h.x - handleSize/2, h.y - handleSize/2, handleSize, handleSize)
+          ctx.fillRect(h.x - handleSize / 2, h.y - handleSize / 2, handleSize, handleSize)
         })
       }
     } else {
@@ -2124,6 +2212,411 @@ function App() {
 
   const selectedText = selectedTextIndex !== null ? textOverlays[selectedTextIndex] : null
 
+  // ==================== 배경제거 모드 함수들 ====================
+
+  const handleRemoveBg = useCallback(async (file) => {
+    setIsRemovingBg(true)
+    setRemoveBgProgress(0)
+    setRemoveBgResult(null)
+
+    // 원본 미리보기 URL
+    const originalUrl = URL.createObjectURL(file)
+    setRemoveBgOriginalUrl(originalUrl)
+    setRemoveBgImage(file)
+
+    try {
+      const blob = await removeBackground(file, {
+        progress: (key, current, total) => {
+          if (total > 0) {
+            setRemoveBgProgress(Math.round((current / total) * 100))
+          }
+        }
+      })
+      setRemoveBgResult(URL.createObjectURL(blob))
+    } catch (err) {
+      console.error('Background removal failed:', err)
+    } finally {
+      setIsRemovingBg(false)
+    }
+  }, [])
+
+  const handleRemoveBgFileSelect = useCallback((e) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      handleRemoveBg(file)
+    }
+    e.target.value = ''
+  }, [handleRemoveBg])
+
+  const handleRemoveBgDrop = useCallback((e) => {
+    e.preventDefault()
+    setIsDragging(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file && file.type.startsWith('image/')) {
+      handleRemoveBg(file)
+    }
+  }, [handleRemoveBg])
+
+  const resetRemoveBg = useCallback(() => {
+    if (removeBgOriginalUrl) URL.revokeObjectURL(removeBgOriginalUrl)
+    if (removeBgResult) URL.revokeObjectURL(removeBgResult)
+    setRemoveBgImage(null)
+    setRemoveBgOriginalUrl(null)
+    setRemoveBgResult(null)
+    setRemoveBgProgress(0)
+    setIsRemovingBg(false)
+  }, [removeBgOriginalUrl, removeBgResult])
+
+  const downloadRemoveBgResult = useCallback(() => {
+    if (!removeBgResult) return
+    const a = document.createElement('a')
+    a.href = removeBgResult
+    a.download = 'removed-bg.png'
+    a.click()
+  }, [removeBgResult])
+
+  // ==================== 영상분할 모드 함수들 ====================
+
+  // FFmpeg lazy load — public/ffmpeg/ 에서 로드
+  const loadFFmpeg = useCallback(async () => {
+    if (ffmpegRef.current) return ffmpegRef.current
+    setIsFFmpegLoading(true)
+    try {
+      const { FFmpeg } = await import('@ffmpeg/ffmpeg')
+      const { toBlobURL } = await import('@ffmpeg/util')
+      const ffmpeg = new FFmpeg()
+
+      const base = window.location.origin
+      const coreURL = await toBlobURL(`${base}/ffmpeg/ffmpeg-core.js`, 'text/javascript')
+      const wasmURL = await toBlobURL(`${base}/ffmpeg/ffmpeg-core.wasm`, 'application/wasm')
+
+      await ffmpeg.load({ coreURL, wasmURL })
+      ffmpegRef.current = ffmpeg
+      setIsFFmpegLoaded(true)
+      return ffmpeg
+    } catch (err) {
+      console.error('FFmpeg load failed:', err)
+      return null
+    } finally {
+      setIsFFmpegLoading(false)
+    }
+  }, [])
+
+  // 비디오 로드
+  const loadVideo = useCallback((file) => {
+    // 500MB 제한
+    if (file.size > 500 * 1024 * 1024) {
+      alert(t.videosplit_fileTooLarge)
+      return
+    }
+    if (videoUrl) URL.revokeObjectURL(videoUrl)
+    const url = URL.createObjectURL(file)
+    setVideoFile(file)
+    setVideoUrl(url)
+    setVideoSplitPieces([])
+    setVideoMeta(null)
+  }, [videoUrl, t])
+
+  // 비디오 분할선 초기화 (등분)
+  const initVideoSplitLines = useCallback((mode, w, h) => {
+    const vertical = []
+    const horizontal = []
+    for (let i = 1; i < mode.cols; i++) vertical.push((w / mode.cols) * i)
+    for (let i = 1; i < mode.rows; i++) horizontal.push((h / mode.rows) * i)
+    setVideoSplitLines({ vertical, horizontal })
+  }, [])
+
+  // 비디오 메타데이터 로드 이벤트
+  const handleVideoMetadata = useCallback(() => {
+    const video = videoRef.current
+    if (!video) return
+    const meta = {
+      duration: video.duration,
+      width: video.videoWidth,
+      height: video.videoHeight,
+    }
+    setVideoMeta(meta)
+    initVideoSplitLines(videoSplitMode, meta.width, meta.height)
+  }, [videoSplitMode, initVideoSplitLines])
+
+  // 영상분할 실행 — videoSplitLines 기반 crop
+  const processVideoSplit = useCallback(async () => {
+    if (!videoFile || !videoMeta) return
+    setIsVideoProcessing(true)
+    setVideoProcessingProgress(0)
+    setVideoSplitPieces([])
+
+    try {
+      const ffmpeg = await loadFFmpeg()
+      if (!ffmpeg) return
+
+      const { fetchFile } = await import('@ffmpeg/util')
+
+      await ffmpeg.writeFile('input.mp4', await fetchFile(videoFile))
+
+      const { width, height } = videoMeta
+
+      // 분할선으로 영역 계산 (이미지 분할과 동일 로직)
+      const sortedV = [...videoSplitLines.vertical].sort((a, b) => a - b).filter(v => v > 0 && v < width)
+      const sortedH = [...videoSplitLines.horizontal].sort((a, b) => a - b).filter(h => h > 0 && h < height)
+      const vLines = [0, ...sortedV, width]
+      const hLines = [0, ...sortedH, height]
+
+      const numCols = vLines.length - 1
+      const numRows = hLines.length - 1
+      const totalPieces = numCols * numRows
+      const pieces = []
+
+      for (let row = 0; row < numRows; row++) {
+        for (let col = 0; col < numCols; col++) {
+          const index = row * numCols + col
+          const x = Math.round(vLines[col])
+          const y = Math.round(hLines[row])
+          // 짝수 보장 (H.264 요구)
+          let w = Math.round(vLines[col + 1] - vLines[col])
+          let h = Math.round(hLines[row + 1] - hLines[row])
+          w = w % 2 === 0 ? w : w - 1
+          h = h % 2 === 0 ? h : h - 1
+          if (w < 2 || h < 2) continue
+
+          const outName = `piece_${row + 1}_${col + 1}.mp4`
+
+          await ffmpeg.exec([
+            '-i', 'input.mp4',
+            '-vf', `crop=${w}:${h}:${x}:${y}`,
+            '-c:v', 'libx264',
+            '-preset', 'fast',
+            '-c:a', 'copy',
+            '-y', outName,
+          ])
+
+          const data = await ffmpeg.readFile(outName)
+          const blob = new Blob([data.buffer], { type: 'video/mp4' })
+          const pieceUrl = URL.createObjectURL(blob)
+
+          pieces.push({
+            name: outName,
+            url: pieceUrl,
+            row,
+            col,
+            width: w,
+            height: h,
+          })
+
+          setVideoProcessingProgress(Math.round(((index + 1) / totalPieces) * 100))
+        }
+      }
+
+      setVideoSplitPieces(pieces)
+
+      await ffmpeg.deleteFile('input.mp4')
+      for (const p of pieces) {
+        try { await ffmpeg.deleteFile(p.name) } catch (_) {}
+      }
+    } catch (err) {
+      console.error('Video split failed:', err)
+    } finally {
+      setIsVideoProcessing(false)
+    }
+  }, [videoFile, videoMeta, videoSplitLines, loadFFmpeg])
+
+  // 개별 비디오 다운로드
+  const downloadVideoPiece = useCallback((piece) => {
+    const a = document.createElement('a')
+    a.href = piece.url
+    a.download = piece.name
+    a.click()
+  }, [])
+
+  // ZIP 다운로드
+  const downloadVideoZip = useCallback(async () => {
+    if (videoSplitPieces.length === 0) return
+    setIsDownloading(true)
+    try {
+      const zip = new JSZip()
+      for (const piece of videoSplitPieces) {
+        const resp = await fetch(piece.url)
+        const blob = await resp.blob()
+        zip.file(piece.name, blob)
+      }
+      const blob = await zip.generateAsync({ type: 'blob' })
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = 'video_split.zip'
+      a.click()
+      URL.revokeObjectURL(a.href)
+    } finally {
+      setIsDownloading(false)
+    }
+  }, [videoSplitPieces])
+
+  // 영상 초기화
+  const resetVideo = useCallback(() => {
+    if (videoUrl) URL.revokeObjectURL(videoUrl)
+    videoSplitPieces.forEach(p => URL.revokeObjectURL(p.url))
+    setVideoFile(null)
+    setVideoUrl(null)
+    setVideoMeta(null)
+    setVideoSplitPieces([])
+    setVideoSplitLines({ vertical: [], horizontal: [] })
+    setVideoProcessingProgress(0)
+    setIsVideoProcessing(false)
+  }, [videoUrl, videoSplitPieces])
+
+  // 비디오 위 그리드 오버레이 캔버스
+  useEffect(() => {
+    if (appMode !== 'videosplit' || !videoRef.current || !videoCanvasRef.current || !videoMeta) return
+
+    const video = videoRef.current
+    const canvas = videoCanvasRef.current
+    const ctx = canvas.getContext('2d')
+
+    const drawOverlay = () => {
+      const wrapper = video.parentElement
+      if (!wrapper) return
+      const wrapperRect = wrapper.getBoundingClientRect()
+      const videoRect = video.getBoundingClientRect()
+
+      canvas.width = videoRect.width
+      canvas.height = videoRect.height
+      canvas.style.left = `${videoRect.left - wrapperRect.left}px`
+      canvas.style.top = `${videoRect.top - wrapperRect.top}px`
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+      const scaleX = canvas.width / videoMeta.width
+      const scaleY = canvas.height / videoMeta.height
+
+      ctx.strokeStyle = '#ff0000'
+      ctx.lineWidth = 2
+
+      // 세로선 — videoSplitLines 기반
+      videoSplitLines.vertical.forEach(v => {
+        const x = v * scaleX
+        ctx.beginPath()
+        ctx.moveTo(x, 0)
+        ctx.lineTo(x, canvas.height)
+        ctx.stroke()
+      })
+
+      // 가로선
+      videoSplitLines.horizontal.forEach(h => {
+        const y = h * scaleY
+        ctx.beginPath()
+        ctx.moveTo(0, y)
+        ctx.lineTo(canvas.width, y)
+        ctx.stroke()
+      })
+    }
+
+    drawOverlay()
+
+    const observer = new ResizeObserver(drawOverlay)
+    observer.observe(video)
+
+    return () => observer.disconnect()
+  }, [appMode, videoMeta, videoSplitLines])
+
+  // 비디오 캔버스 → 실제 비디오 좌표 변환
+  const getVideoCoords = useCallback((e) => {
+    const canvas = videoCanvasRef.current
+    if (!canvas || !videoMeta) return null
+    const rect = canvas.getBoundingClientRect()
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY
+    return {
+      x: ((clientX - rect.left) / rect.width) * videoMeta.width,
+      y: ((clientY - rect.top) / rect.height) * videoMeta.height,
+    }
+  }, [videoMeta])
+
+  // 분할선 드래그 시작
+  const handleVideoOverlayMouseDown = useCallback((e) => {
+    const coords = getVideoCoords(e)
+    if (!coords || !videoMeta) return
+    const threshold = videoMeta.width * 0.02 // 2% 감지 영역
+
+    for (let i = 0; i < videoSplitLines.vertical.length; i++) {
+      if (Math.abs(coords.x - videoSplitLines.vertical[i]) < threshold) {
+        setVideoDragLine({ type: 'vertical', index: i })
+        e.preventDefault()
+        return
+      }
+    }
+    for (let i = 0; i < videoSplitLines.horizontal.length; i++) {
+      if (Math.abs(coords.y - videoSplitLines.horizontal[i]) < threshold) {
+        setVideoDragLine({ type: 'horizontal', index: i })
+        e.preventDefault()
+        return
+      }
+    }
+  }, [getVideoCoords, videoMeta, videoSplitLines])
+
+  // 분할선 드래그 이동
+  const handleVideoOverlayMouseMove = useCallback((e) => {
+    if (!videoDragLine || !videoMeta) return
+    e.preventDefault()
+    const coords = getVideoCoords(e)
+    if (!coords) return
+
+    const MIN_GAP = 20 // 최소 간격 (픽셀)
+
+    setVideoSplitLines(prev => {
+      const newLines = { ...prev }
+      if (videoDragLine.type === 'vertical') {
+        const arr = [...prev.vertical]
+        arr[videoDragLine.index] = Math.max(MIN_GAP, Math.min(videoMeta.width - MIN_GAP, coords.x))
+        newLines.vertical = arr
+      } else {
+        const arr = [...prev.horizontal]
+        arr[videoDragLine.index] = Math.max(MIN_GAP, Math.min(videoMeta.height - MIN_GAP, coords.y))
+        newLines.horizontal = arr
+      }
+      return newLines
+    })
+  }, [videoDragLine, videoMeta, getVideoCoords])
+
+  // 분할선 드래그 종료
+  const handleVideoOverlayMouseUp = useCallback(() => {
+    setVideoDragLine(null)
+  }, [])
+
+  // 비디오 파일 드롭/선택 핸들러
+  const handleVideoDrop = useCallback((e) => {
+    e.preventDefault()
+    setIsDragging(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file && file.type.startsWith('video/')) {
+      loadVideo(file)
+    }
+  }, [loadVideo])
+
+  const handleVideoFileSelect = useCallback((e) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      loadVideo(file)
+    }
+    e.target.value = ''
+  }, [loadVideo])
+
+  // 영상 모드 그리드 변경
+  const handleVideoSplitModeChange = useCallback((mode) => {
+    setVideoSplitMode(mode)
+    setVideoSplitPieces([])
+    if (videoMeta) {
+      initVideoSplitLines(mode, videoMeta.width, videoMeta.height)
+    }
+  }, [videoMeta, initVideoSplitLines])
+
+  // 포맷 헬퍼: 시간 → mm:ss
+  const formatDuration = (seconds) => {
+    const m = Math.floor(seconds / 60)
+    const s = Math.floor(seconds % 60)
+    return `${m}:${s.toString().padStart(2, '0')}`
+  }
+
+  // ==================== 영상분할 모드 함수 끝 ====================
+
   return (
     <div className="app">
       {/* 헤더 */}
@@ -2140,7 +2633,7 @@ function App() {
               className="clickable"
               onClick={() => window.location.reload()}
             >IMAGE SPLITTER</h1>
-            <span className="header-credit">made by ATB</span>
+            <span className="header-credit">made by @aitoolbee</span>
           </div>
           <button
             className="lang-toggle-btn"
@@ -2148,9 +2641,9 @@ function App() {
             title={locale === 'ko' ? 'Switch to English' : '한국어로 전환'}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10"/>
-              <path d="M2 12h20"/>
-              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+              <circle cx="12" cy="12" r="10" />
+              <path d="M2 12h20" />
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
             </svg>
             <span>{locale === 'ko' ? 'KO' : 'EN'}</span>
           </button>
@@ -2163,9 +2656,9 @@ function App() {
         <section className="preview-panel">
           <div className="panel-header">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-              <circle cx="8.5" cy="8.5" r="1.5"/>
-              <polyline points="21,15 16,10 5,21"/>
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21,15 16,10 5,21" />
             </svg>
             <span>{t.preview}</span>
           </div>
@@ -2187,7 +2680,7 @@ function App() {
                       <polyline points="17,8 12,3 7,8" />
                       <line x1="12" y1="3" x2="12" y2="15" />
                     </svg>
-                    <p>{t.uploadHint.split('\n').map((line, i) => <span key={i}>{line}<br/></span>)}</p>
+                    <p>{t.uploadHint.split('\n').map((line, i) => <span key={i}>{line}<br /></span>)}</p>
                   </div>
                 ) : (
                   <div className="canvas-wrapper">
@@ -2234,7 +2727,7 @@ function App() {
                 </div>
               )}
             </>
-          ) : (
+          ) : appMode === 'merge' ? (
             /* 합치기 모드 프리뷰 */
             <div
               className={`preview-area ${isMergeDragging ? 'dragging' : ''}`}
@@ -2264,6 +2757,131 @@ function App() {
                 style={{ display: 'none' }}
               />
             </div>
+          ) : appMode === 'removebg' ? (
+            /* 배경제거 모드 프리뷰 */
+            <div
+              className={`preview-area ${isDragging ? 'dragging' : ''}`}
+              onDrop={handleRemoveBgDrop}
+              onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+              onDragLeave={() => setIsDragging(false)}
+              onClick={() => !removeBgImage && removeBgFileInputRef.current?.click()}
+              style={removeBgImage ? { border: 'none', cursor: 'default' } : undefined}
+            >
+              {!removeBgImage ? (
+                <div className="upload-placeholder">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17,8 12,3 7,8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                  <p>{t.removebg_upload}</p>
+                </div>
+              ) : (
+                <div className="removebg-preview">
+                  <div className="removebg-compare">
+                    <div className="removebg-card">
+                      <div className="removebg-card-label">{t.removebg_original}</div>
+                      <img src={removeBgOriginalUrl} alt="Original" />
+                    </div>
+                    <div className="removebg-card">
+                      <div className="removebg-card-label">{t.removebg_result}</div>
+                      {isRemovingBg ? (
+                        <div className="removebg-loading">
+                          <div className="removebg-progress-bar">
+                            <div className="removebg-progress-fill" style={{ width: `${removeBgProgress}%` }} />
+                          </div>
+                          <p>{t.removebg_processing} {removeBgProgress}%</p>
+                        </div>
+                      ) : removeBgResult ? (
+                        <div className="removebg-result-wrapper">
+                          <img src={removeBgResult} alt="Result" />
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              )}
+              <input
+                type="file"
+                ref={removeBgFileInputRef}
+                accept="image/*"
+                onChange={handleRemoveBgFileSelect}
+                style={{ display: 'none' }}
+              />
+            </div>
+          ) : (
+            /* 영상분할 모드 프리뷰 */
+            <>
+              <div
+                className={`preview-area ${isDragging ? 'dragging' : ''}`}
+                onDrop={handleVideoDrop}
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+                onDragLeave={() => setIsDragging(false)}
+                onClick={() => !videoFile && videoFileInputRef.current?.click()}
+                style={videoFile ? { border: 'none', cursor: 'default' } : undefined}
+              >
+                {!videoFile ? (
+                  <div className="upload-placeholder">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <polygon points="23,7 16,12 23,17" />
+                      <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                    </svg>
+                    <p>{t.videosplit_upload}</p>
+                  </div>
+                ) : (
+                  <div className="video-split-preview">
+                    <div className="video-wrapper">
+                      <video
+                        ref={videoRef}
+                        src={videoUrl}
+                        controls
+                        className="video-player"
+                        onLoadedMetadata={handleVideoMetadata}
+                      />
+                      <canvas
+                        ref={videoCanvasRef}
+                        className="video-grid-overlay"
+                        onMouseDown={handleVideoOverlayMouseDown}
+                        onMouseMove={handleVideoOverlayMouseMove}
+                        onMouseUp={handleVideoOverlayMouseUp}
+                        onMouseLeave={handleVideoOverlayMouseUp}
+                        onTouchStart={handleVideoOverlayMouseDown}
+                        onTouchMove={handleVideoOverlayMouseMove}
+                        onTouchEnd={handleVideoOverlayMouseUp}
+                      />
+                    </div>
+                  </div>
+                )}
+                <input
+                  type="file"
+                  ref={videoFileInputRef}
+                  accept="video/*"
+                  onChange={handleVideoFileSelect}
+                  style={{ display: 'none' }}
+                />
+              </div>
+
+              {/* 분할 결과 미리보기 */}
+              {videoSplitPieces.length > 0 && (
+                <div className="split-preview">
+                  <div className="split-preview-header">
+                    <span>{t.videosplit_preview}</span>
+                    <span className="preview-hint">{videoSplitPieces.length} {t.videosplit_piece}</span>
+                  </div>
+                  <div className="video-split-results" style={{
+                    gridTemplateColumns: `repeat(${videoSplitLines.vertical.length + 1}, 1fr)`,
+                    gridTemplateRows: `repeat(${videoSplitLines.horizontal.length + 1}, 1fr)`
+                  }}>
+                    {videoSplitPieces.map((piece) => (
+                      <div key={piece.name} className="video-piece" onClick={() => downloadVideoPiece(piece)}>
+                        <video src={piece.url} muted preload="metadata" />
+                        <span className="video-piece-label">{piece.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </section>
 
@@ -2271,13 +2889,13 @@ function App() {
         <section className="settings-panel">
           <div className="panel-header">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
             </svg>
             <span>{t.settings}</span>
           </div>
 
-          {/* 모드 토글 버튼 */}
+          {/* 모드 토글 버튼 (2x2 그리드) */}
           <div className="mode-toggle-header">
             <button
               className={`mode-toggle-btn ${appMode === 'split' ? 'active' : ''}`}
@@ -2291,265 +2909,302 @@ function App() {
             >
               {t.mode_merge}
             </button>
+            <button
+              className={`mode-toggle-btn ${appMode === 'removebg' ? 'active' : ''}`}
+              onClick={() => setAppMode('removebg')}
+            >
+              {t.mode_removebg}
+            </button>
+            <button
+              className={`mode-toggle-btn ${appMode === 'videosplit' ? 'active' : ''}`}
+              onClick={() => setAppMode('videosplit')}
+            >
+              {t.mode_videosplit}
+            </button>
           </div>
 
-          {appMode === 'split' ? (
+          {appMode === 'removebg' ? (
+            <>
+              {/* 배경제거 모드 설정 */}
+              <div className="setting-group">
+                <div className="download-buttons">
+                  <button
+                    className="download-btn primary"
+                    onClick={downloadRemoveBgResult}
+                    disabled={!removeBgResult || isRemovingBg}
+                  >
+                    {t.removebg_download} (PNG)
+                  </button>
+                </div>
+              </div>
+              {removeBgImage && (
+                <div className="setting-group">
+                  <button
+                    className="change-image-btn"
+                    onClick={resetRemoveBg}
+                  >
+                    {t.removebg_reset}
+                  </button>
+                </div>
+              )}
+            </>
+          ) : appMode === 'split' ? (
             <>
               {/* 분할 방향 */}
               <div className="setting-group">
                 <label className="setting-label">{t.splitDirection}</label>
-            <div className="split-modes">
-              {Object.values(SPLIT_MODES).map(mode => (
-                <button
-                  key={mode.id}
-                  className={`mode-btn ${splitMode.id === mode.id ? 'active' : ''}`}
-                  onClick={() => handleSplitModeChange(mode)}
-                >
-                  <span className="mode-icon">{mode.icon}</span>
-                  <span className="mode-name">{t[`mode_${mode.id}`] || mode.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* STEP 1: 분할선 조정 */}
-          <div className="setting-group">
-            <label className="setting-label">{t.step1_splitLines}</label>
-            {splitMode.custom ? (
-              <div className="custom-lines-control">
-                <div className="line-control-row">
-                  <span className="line-label">{t.verticalLine} ({splitLines.vertical.length})</span>
-                  <button className="line-btn" onClick={addVerticalLine} disabled={!image}>+</button>
-                  <button className="line-btn" onClick={removeVerticalLine} disabled={!image || splitLines.vertical.length === 0}>−</button>
-                </div>
-                <div className="line-control-row">
-                  <span className="line-label">{t.horizontalLine} ({splitLines.horizontal.length})</span>
-                  <button className="line-btn" onClick={addHorizontalLine} disabled={!image}>+</button>
-                  <button className="line-btn" onClick={removeHorizontalLine} disabled={!image || splitLines.horizontal.length === 0}>−</button>
+                <div className="split-modes">
+                  {Object.values(SPLIT_MODES).map(mode => (
+                    <button
+                      key={mode.id}
+                      className={`mode-btn ${splitMode.id === mode.id ? 'active' : ''}`}
+                      onClick={() => handleSplitModeChange(mode)}
+                    >
+                      <span className="mode-icon">{mode.icon}</span>
+                      <span className="mode-name">{t[`mode_${mode.id}`] || mode.name}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
-            ) : (
-              <div className="mode-toggle">
-                <button
-                  className={`toggle-btn ${isEqualMode ? 'active' : ''}`}
-                  onClick={() => {
-                    setIsEqualMode(true)
-                    if (image) {
-                      const w = appliedTrim ? appliedTrim.width : imageSize.width
-                      const h = appliedTrim ? appliedTrim.height : imageSize.height
-                      initializeSplitLines(splitMode, w, h)
-                    }
-                  }}
-                >
-                  {t.equal}
-                </button>
-                <button
-                  className={`toggle-btn ${!isEqualMode ? 'active' : ''}`}
-                  onClick={() => setIsEqualMode(false)}
-                >
-                  {t.free}
-                </button>
+
+              {/* STEP 1: 분할선 조정 */}
+              <div className="setting-group">
+                <label className="setting-label">{t.step1_splitLines}</label>
+                {splitMode.custom ? (
+                  <div className="custom-lines-control">
+                    <div className="line-control-row">
+                      <span className="line-label">{t.verticalLine} ({splitLines.vertical.length})</span>
+                      <button className="line-btn" onClick={addVerticalLine} disabled={!image}>+</button>
+                      <button className="line-btn" onClick={removeVerticalLine} disabled={!image || splitLines.vertical.length === 0}>−</button>
+                    </div>
+                    <div className="line-control-row">
+                      <span className="line-label">{t.horizontalLine} ({splitLines.horizontal.length})</span>
+                      <button className="line-btn" onClick={addHorizontalLine} disabled={!image}>+</button>
+                      <button className="line-btn" onClick={removeHorizontalLine} disabled={!image || splitLines.horizontal.length === 0}>−</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mode-toggle">
+                    <button
+                      className={`toggle-btn ${isEqualMode ? 'active' : ''}`}
+                      onClick={() => {
+                        setIsEqualMode(true)
+                        if (image) {
+                          const w = appliedTrim ? appliedTrim.width : imageSize.width
+                          const h = appliedTrim ? appliedTrim.height : imageSize.height
+                          initializeSplitLines(splitMode, w, h)
+                        }
+                      }}
+                    >
+                      {t.equal}
+                    </button>
+                    <button
+                      className={`toggle-btn ${!isEqualMode ? 'active' : ''}`}
+                      onClick={() => setIsEqualMode(false)}
+                    >
+                      {t.free}
+                    </button>
+                  </div>
+                )}
+                <p className="setting-hint">{t.dragHint}</p>
               </div>
-            )}
-            <p className="setting-hint">{t.dragHint}</p>
-          </div>
 
-          {/* STEP 2: 임의수정 */}
-          <div className="setting-group">
-            <label className="setting-label">{t.step2_crop}</label>
-            <div className="trim-buttons">
-              <button
-                className={`trim-btn ${isTrimming ? 'active' : ''}`}
-                onClick={() => setIsTrimming(true)}
-                disabled={!image}
-              >
-                {t.select}
-              </button>
-              <button
-                className="trim-btn"
-                onClick={applyTrim}
-                disabled={!trimArea || trimArea.width === 0}
-              >
-                {t.confirm}
-              </button>
-              <button
-                className="trim-btn"
-                onClick={cancelTrim}
-                disabled={!appliedTrim && !isTrimming}
-              >
-                {t.release}
-              </button>
-            </div>
-            <p className="setting-hint">{t.step1Hint}</p>
-          </div>
-
-          {/* STEP 3: 텍스트 추가 */}
-          <div className="setting-group">
-            <label className="setting-label">{t.step3_text}</label>
-            {isAddingText ? (
-              <div className="text-input-row">
-                <input
-                  type="text"
-                  value={newTextInput}
-                  onChange={(e) => setNewTextInput(e.target.value)}
-                  placeholder={t.textPlaceholder}
-                  className="text-input"
-                  onKeyDown={(e) => e.key === 'Enter' && addTextOverlay()}
-                  autoFocus
-                />
-                <button className="trim-btn" onClick={addTextOverlay}>{t.add}</button>
-                <button className="trim-btn" onClick={() => setIsAddingText(false)}>{t.cancel}</button>
-              </div>
-            ) : (
-              <button
-                className="trim-btn full-width"
-                onClick={() => setIsAddingText(true)}
-                disabled={!image}
-              >
-                {t.addText}
-              </button>
-            )}
-
-            {/* 선택된 텍스트 편집 */}
-            {selectedText && (
-              <div className="text-editor">
-                <div className="text-editor-row">
-                  <label>{t.content}</label>
-                  <input
-                    type="text"
-                    value={selectedText.content}
-                    onChange={(e) => updateSelectedText({ content: e.target.value })}
-                    className="text-input"
-                  />
-                </div>
-                <div className="text-editor-row">
-                  <label>{t.font}</label>
-                  <select
-                    value={selectedText.fontFamily}
-                    onChange={(e) => updateSelectedText({ fontFamily: e.target.value })}
-                    className="font-select"
-                  >
-                    {FONTS.map(font => (
-                      <option key={font.value} value={font.value} style={{ fontFamily: font.value }}>
-                        {font.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="text-editor-row">
-                  <label>{t.size}</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={selectedText.fontSize}
-                    onChange={(e) => {
-                      const val = e.target.value
-                      // 숫자만 허용
-                      if (val === '' || /^\d+$/.test(val)) {
-                        updateSelectedText({ fontSize: val === '' ? '' : Number(val) })
-                      }
-                    }}
-                    onBlur={(e) => {
-                      const val = Number(e.target.value)
-                      if (!val || val < 12) {
-                        updateSelectedText({ fontSize: 12 })
-                      }
-                    }}
-                    className="size-input"
-                  />
-                  <span>px</span>
-                </div>
-                <div className="text-editor-row">
-                  <label>{t.color}</label>
-                  <input
-                    type="color"
-                    value={selectedText.color}
-                    onChange={(e) => updateSelectedText({ color: e.target.value })}
-                  />
-                  <label>{t.stroke}</label>
-                  <input
-                    type="color"
-                    value={selectedText.strokeColor}
-                    onChange={(e) => updateSelectedText({ strokeColor: e.target.value })}
-                  />
-                </div>
-                <div className="text-editor-row">
-                  <label>{t.strokeWidth}</label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="20"
-                    value={selectedText.strokeWidth}
-                    onChange={(e) => updateSelectedText({ strokeWidth: Number(e.target.value) })}
-                  />
-                  <span>{selectedText.strokeWidth}px</span>
-                </div>
-                <button className="delete-text-btn" onClick={deleteSelectedText}>
-                  {t.deleteText}
-                </button>
-              </div>
-            )}
-
-            {textOverlays.length > 0 && (
-              <p className="setting-hint">{t.textHint}</p>
-            )}
-          </div>
-
-          {/* STEP 4: 출력 설정 */}
-          <div className="setting-group">
-            <label className="setting-label">{t.step4}</label>
-            <div className="format-buttons">
-              {['jpeg', 'png', 'webp'].map(format => (
-                <button
-                  key={format}
-                  className={`format-btn ${outputFormat === format ? 'active' : ''}`}
-                  onClick={() => setOutputFormat(format)}
-                >
-                  {format.toUpperCase()}
-                </button>
-              ))}
-            </div>
-            <div className="upscale-control">
-              <span>{t.upscale}</span>
-              <div className="upscale-buttons">
-                {[1, 2, 4].map(scale => (
+              {/* STEP 2: 임의수정 */}
+              <div className="setting-group">
+                <label className="setting-label">{t.step2_crop}</label>
+                <div className="trim-buttons">
                   <button
-                    key={scale}
-                    className={`upscale-btn ${upscale === scale ? 'active' : ''}`}
-                    onClick={() => setUpscale(scale)}
+                    className={`trim-btn ${isTrimming ? 'active' : ''}`}
+                    onClick={() => setIsTrimming(true)}
+                    disabled={!image}
                   >
-                    {t[`upscale${scale}x`]}
+                    {t.select}
                   </button>
-                ))}
+                  <button
+                    className="trim-btn"
+                    onClick={applyTrim}
+                    disabled={!trimArea || trimArea.width === 0}
+                  >
+                    {t.confirm}
+                  </button>
+                  <button
+                    className="trim-btn"
+                    onClick={cancelTrim}
+                    disabled={!appliedTrim && !isTrimming}
+                  >
+                    {t.release}
+                  </button>
+                </div>
+                <p className="setting-hint">{t.step1Hint}</p>
               </div>
-            </div>
-          </div>
 
-          {/* 다운로드 버튼 */}
-          <div className="setting-group">
-            <label className="setting-label">{t.step5}</label>
-            <div className="download-buttons">
-              <button
-                className="download-btn"
-                onClick={downloadAll}
-                disabled={!image}
-              >
-                {t.downloadEach}
-              </button>
-              <button
-                className="download-btn primary"
-                onClick={downloadZip}
-                disabled={!image || isDownloading}
-              >
-                {isDownloading ? (
-                  <>
-                    <span className="loading-spinner"></span>
-                    처리중...
-                  </>
-                ) : t.downloadZip}
-              </button>
-            </div>
-          </div>
+              {/* STEP 3: 텍스트 추가 */}
+              <div className="setting-group">
+                <label className="setting-label">{t.step3_text}</label>
+                {isAddingText ? (
+                  <div className="text-input-row">
+                    <input
+                      type="text"
+                      value={newTextInput}
+                      onChange={(e) => setNewTextInput(e.target.value)}
+                      placeholder={t.textPlaceholder}
+                      className="text-input"
+                      onKeyDown={(e) => e.key === 'Enter' && addTextOverlay()}
+                      autoFocus
+                    />
+                    <button className="trim-btn" onClick={addTextOverlay}>{t.add}</button>
+                    <button className="trim-btn" onClick={() => setIsAddingText(false)}>{t.cancel}</button>
+                  </div>
+                ) : (
+                  <button
+                    className="trim-btn full-width"
+                    onClick={() => setIsAddingText(true)}
+                    disabled={!image}
+                  >
+                    {t.addText}
+                  </button>
+                )}
+
+                {/* 선택된 텍스트 편집 */}
+                {selectedText && (
+                  <div className="text-editor">
+                    <div className="text-editor-row">
+                      <label>{t.content}</label>
+                      <input
+                        type="text"
+                        value={selectedText.content}
+                        onChange={(e) => updateSelectedText({ content: e.target.value })}
+                        className="text-input"
+                      />
+                    </div>
+                    <div className="text-editor-row">
+                      <label>{t.font}</label>
+                      <select
+                        value={selectedText.fontFamily}
+                        onChange={(e) => updateSelectedText({ fontFamily: e.target.value })}
+                        className="font-select"
+                      >
+                        {FONTS.map(font => (
+                          <option key={font.value} value={font.value} style={{ fontFamily: font.value }}>
+                            {font.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="text-editor-row">
+                      <label>{t.size}</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={selectedText.fontSize}
+                        onChange={(e) => {
+                          const val = e.target.value
+                          // 숫자만 허용
+                          if (val === '' || /^\d+$/.test(val)) {
+                            updateSelectedText({ fontSize: val === '' ? '' : Number(val) })
+                          }
+                        }}
+                        onBlur={(e) => {
+                          const val = Number(e.target.value)
+                          if (!val || val < 12) {
+                            updateSelectedText({ fontSize: 12 })
+                          }
+                        }}
+                        className="size-input"
+                      />
+                      <span>px</span>
+                    </div>
+                    <div className="text-editor-row">
+                      <label>{t.color}</label>
+                      <input
+                        type="color"
+                        value={selectedText.color}
+                        onChange={(e) => updateSelectedText({ color: e.target.value })}
+                      />
+                      <label>{t.stroke}</label>
+                      <input
+                        type="color"
+                        value={selectedText.strokeColor}
+                        onChange={(e) => updateSelectedText({ strokeColor: e.target.value })}
+                      />
+                    </div>
+                    <div className="text-editor-row">
+                      <label>{t.strokeWidth}</label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="20"
+                        value={selectedText.strokeWidth}
+                        onChange={(e) => updateSelectedText({ strokeWidth: Number(e.target.value) })}
+                      />
+                      <span>{selectedText.strokeWidth}px</span>
+                    </div>
+                    <button className="delete-text-btn" onClick={deleteSelectedText}>
+                      {t.deleteText}
+                    </button>
+                  </div>
+                )}
+
+                {textOverlays.length > 0 && (
+                  <p className="setting-hint">{t.textHint}</p>
+                )}
+              </div>
+
+              {/* STEP 4: 출력 설정 */}
+              <div className="setting-group">
+                <label className="setting-label">{t.step4}</label>
+                <div className="format-buttons">
+                  {['jpeg', 'png', 'webp'].map(format => (
+                    <button
+                      key={format}
+                      className={`format-btn ${outputFormat === format ? 'active' : ''}`}
+                      onClick={() => setOutputFormat(format)}
+                    >
+                      {format.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+                <div className="upscale-control">
+                  <span>{t.upscale}</span>
+                  <div className="upscale-buttons">
+                    {[1, 2, 4].map(scale => (
+                      <button
+                        key={scale}
+                        className={`upscale-btn ${upscale === scale ? 'active' : ''}`}
+                        onClick={() => setUpscale(scale)}
+                      >
+                        {t[`upscale${scale}x`]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* 다운로드 버튼 */}
+              <div className="setting-group">
+                <label className="setting-label">{t.step5}</label>
+                <div className="download-buttons">
+                  <button
+                    className="download-btn"
+                    onClick={downloadAll}
+                    disabled={!image}
+                  >
+                    {t.downloadEach}
+                  </button>
+                  <button
+                    className="download-btn primary"
+                    onClick={downloadZip}
+                    disabled={!image || isDownloading}
+                  >
+                    {isDownloading ? (
+                      <>
+                        <span className="loading-spinner"></span>
+                        처리중...
+                      </>
+                    ) : t.downloadZip}
+                  </button>
+                </div>
+              </div>
 
               {/* 이미지 변경 버튼 */}
               {image && (
@@ -2563,7 +3218,7 @@ function App() {
                 </div>
               )}
             </>
-          ) : (
+          ) : appMode === 'merge' ? (
             <>
               {/* 합치기 모드 설정 */}
 
@@ -2842,7 +3497,119 @@ function App() {
                 )}
               </div>
             </>
-          )}
+          ) : appMode === 'videosplit' ? (
+            <>
+              {/* 영상분할 모드 설정 */}
+
+              {/* 그리드 선택 */}
+              <div className="setting-group">
+                <label className="setting-label">{t.videosplit_gridSelect}</label>
+                <div className="split-modes">
+                  {[SPLIT_MODES.CROSS_4, SPLIT_MODES.GRID_2x3, SPLIT_MODES.GRID_3x2, SPLIT_MODES.GRID_3x3, SPLIT_MODES.GRID_3x4, SPLIT_MODES.GRID_4x3, SPLIT_MODES.GRID_4x4, SPLIT_MODES.VERTICAL_2, SPLIT_MODES.VERTICAL_3, SPLIT_MODES.HORIZONTAL_2, SPLIT_MODES.HORIZONTAL_3].map(mode => (
+                    <button
+                      key={mode.id}
+                      className={`mode-btn ${videoSplitMode.id === mode.id ? 'active' : ''}`}
+                      onClick={() => handleVideoSplitModeChange(mode)}
+                    >
+                      <span className="mode-icon">{mode.icon}</span>
+                      <span className="mode-name">{t[`mode_${mode.id}`] || mode.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 영상 정보 */}
+              {videoMeta && (
+                <div className="setting-group">
+                  <label className="setting-label">{t.videosplit_info}</label>
+                  <div className="video-info-list">
+                    <div className="video-info-item">
+                      <span>{t.videosplit_resolution}</span>
+                      <span>{videoMeta.width} × {videoMeta.height}</span>
+                    </div>
+                    <div className="video-info-item">
+                      <span>{t.videosplit_duration}</span>
+                      <span>{formatDuration(videoMeta.duration)}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* FFmpeg 로딩 상태 */}
+              {isFFmpegLoading && (
+                <div className="setting-group">
+                  <div className="video-ffmpeg-loading">
+                    <span className="loading-spinner"></span>
+                    <div>
+                      <p>{t.videosplit_loading}</p>
+                      <p className="setting-hint">{t.videosplit_loadingHint}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 진행률 */}
+              {isVideoProcessing && (
+                <div className="setting-group">
+                  <label className="setting-label">{t.videosplit_processing}</label>
+                  <div className="video-progress-bar">
+                    <div className="video-progress-fill" style={{ width: `${videoProcessingProgress}%` }} />
+                  </div>
+                  <p className="setting-hint">{videoProcessingProgress}%</p>
+                </div>
+              )}
+
+              {/* 분할 / 다운로드 버튼 */}
+              <div className="setting-group">
+                <div className="download-buttons">
+                  <button
+                    className="download-btn primary"
+                    onClick={processVideoSplit}
+                    disabled={!videoFile || !videoMeta || isVideoProcessing || isFFmpegLoading}
+                  >
+                    {isVideoProcessing ? (
+                      <>
+                        <span className="loading-spinner"></span>
+                        {t.videosplit_processing} {videoProcessingProgress}%
+                      </>
+                    ) : t.videosplit_split}
+                  </button>
+
+                  {videoSplitPieces.length > 0 && (
+                    <>
+                      <button
+                        className="download-btn"
+                        onClick={() => videoSplitPieces.forEach(p => downloadVideoPiece(p))}
+                      >
+                        {t.videosplit_downloadEach}
+                      </button>
+                      <button
+                        className="download-btn primary"
+                        onClick={downloadVideoZip}
+                        disabled={isDownloading}
+                      >
+                        {isDownloading ? (
+                          <>
+                            <span className="loading-spinner"></span>
+                            ...
+                          </>
+                        ) : t.videosplit_downloadZip}
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* 초기화 */}
+              {videoFile && (
+                <div className="setting-group">
+                  <button className="change-image-btn" onClick={resetVideo}>
+                    {t.videosplit_reset}
+                  </button>
+                </div>
+              )}
+            </>
+          ) : null}
         </section>
       </main>
     </div>

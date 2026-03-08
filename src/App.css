@@ -177,6 +177,7 @@
   max-height: 50vh;
   border-radius: 4px;
   cursor: crosshair;
+  touch-action: none;
 }
 
 /* 분할 미리보기 */
@@ -833,16 +834,16 @@
   cursor: not-allowed;
 }
 
-/* 모드 토글 헤더 */
+/* 모드 토글 헤더 (2x2 그리드) */
 .mode-toggle-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 0.5rem;
   padding: 0.75rem 1.25rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .mode-toggle-btn {
-  flex: 1;
   padding: 0.625rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 6px;
@@ -1172,4 +1173,215 @@
 
 .merge-reset-btn:hover {
   background: rgba(255, 82, 82, 0.2);
+}
+
+/* 배경제거 모드 */
+.removebg-preview {
+  width: 100%;
+  padding: 1rem;
+}
+
+.removebg-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.removebg-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-height: 200px;
+}
+
+.removebg-card-label {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-align: center;
+}
+
+.removebg-card img {
+  max-width: 100%;
+  max-height: 50vh;
+  border-radius: 6px;
+  object-fit: contain;
+}
+
+.removebg-result-wrapper {
+  background-image:
+    linear-gradient(45deg, #2a2a2a 25%, transparent 25%),
+    linear-gradient(-45deg, #2a2a2a 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #2a2a2a 75%),
+    linear-gradient(-45deg, transparent 75%, #2a2a2a 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.removebg-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2rem;
+  min-height: 200px;
+}
+
+.removebg-loading p {
+  font-size: 0.813rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.removebg-progress-bar {
+  width: 100%;
+  max-width: 200px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.removebg-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4fc3f7, #0288d1);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+@media (max-width: 600px) {
+  .removebg-compare {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ==================== 영상분할 모드 ==================== */
+
+/* 비디오 프리뷰 */
+.video-split-preview {
+  width: 100%;
+  padding: 1rem;
+}
+
+.video-wrapper {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+.video-player {
+  max-width: 100%;
+  max-height: 50vh;
+  border-radius: 6px;
+  background: #000;
+}
+
+.video-grid-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  cursor: crosshair;
+}
+
+/* 비디오 정보 */
+.video-info-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.video-info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  font-size: 0.813rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.video-info-item span:last-child {
+  color: #4fc3f7;
+  font-weight: 500;
+}
+
+/* FFmpeg 로딩 */
+.video-ffmpeg-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(79, 195, 247, 0.05);
+  border: 1px solid rgba(79, 195, 247, 0.2);
+  border-radius: 8px;
+}
+
+.video-ffmpeg-loading p {
+  font-size: 0.813rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+}
+
+/* 진행률 바 */
+.video-progress-bar {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 0.5rem;
+}
+
+.video-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4fc3f7, #0288d1);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+/* 분할 결과 */
+.video-split-results {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.video-piece {
+  position: relative;
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.video-piece:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(79, 195, 247, 0.3);
+}
+
+.video-piece video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.video-piece-label {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  font-size: 0.625rem;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(0, 0, 0, 0.6);
+  padding: 2px 6px;
+  border-radius: 3px;
 }
