@@ -2339,7 +2339,7 @@ function App() {
     initVideoSplitLines(videoSplitMode, meta.width, meta.height)
   }, [videoSplitMode, initVideoSplitLines])
 
-  // 영상분할 실행 — videoSplitLines 기반 crop
+  // 영상분할 실행 — videoSplitLines 기반 crop, MP4 또는 GIF 출력
   const processVideoSplit = useCallback(async () => {
     if (!videoFile || !videoMeta) return
     setIsVideoProcessing(true)
@@ -2356,7 +2356,7 @@ function App() {
 
       const { width, height } = videoMeta
 
-      // 분할선으로 영역 계산 (이미지 분할과 동일 로직)
+      // 분할선으로 영역 계산
       const sortedV = [...videoSplitLines.vertical].sort((a, b) => a - b).filter(v => v > 0 && v < width)
       const sortedH = [...videoSplitLines.horizontal].sort((a, b) => a - b).filter(h => h > 0 && h < height)
       const vLines = [0, ...sortedV, width]
@@ -2372,9 +2372,9 @@ function App() {
           const index = row * numCols + col
           const x = Math.round(vLines[col])
           const y = Math.round(hLines[row])
-          // 짝수 보장 (H.264 요구)
           let w = Math.round(vLines[col + 1] - vLines[col])
           let h = Math.round(hLines[row + 1] - hLines[row])
+          // 짝수 보장 (H.264)
           w = w % 2 === 0 ? w : w - 1
           h = h % 2 === 0 ? h : h - 1
           if (w < 2 || h < 2) continue
