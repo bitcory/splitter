@@ -2133,7 +2133,7 @@ function App() {
       ctx.restore()
     })
 
-    return canvas.toDataURL(`image/${outputFormat}`, 0.92)
+    return canvas.toDataURL(`image/${outputFormat}`, 1.0)
   }
 
   // 개별 다운로드
