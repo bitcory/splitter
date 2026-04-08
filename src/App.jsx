@@ -125,10 +125,10 @@ const TRANSLATIONS = {
     equal: '등분',
     free: '자유',
     step4: 'STEP 4: 출력 설정',
-    upscale: '업스케일링',
-    upscale1x: '원본',
-    upscale2x: '2배',
-    upscale4x: '4배',
+    upscale: '출력 해상도',
+    upscale1080: '1080',
+    upscale2k: '2K',
+    upscale4k: '4K',
     step5: 'STEP 5: 다운로드',
     downloadEach: '개별 다운로드',
     downloadZip: '전체 다운로드',
@@ -230,10 +230,10 @@ const TRANSLATIONS = {
     equal: 'Equal',
     free: 'Free',
     step4: 'STEP 4: Output Settings',
-    upscale: 'Upscaling',
-    upscale1x: '1x',
-    upscale2x: '2x',
-    upscale4x: '4x',
+    upscale: 'Output Resolution',
+    upscale1080: '1080',
+    upscale2k: '2K',
+    upscale4k: '4K',
     step5: 'STEP 5: Download',
     downloadEach: 'Download Each',
     downloadZip: 'Download All',
@@ -368,7 +368,11 @@ function App() {
 
   // 출력 설정
   const [outputFormat, setOutputFormat] = useState('jpeg')
-  const [upscale, setUpscale] = useState(1)
+  const [upscale, setUpscale] = useState('1080')
+  const getScale = (w, h) => {
+    const targets = { '1080': 1920, '2k': 2560, '4k': 3840 }
+    return targets[upscale] / Math.max(w, h)
+  }
   const [isDownloading, setIsDownloading] = useState(false)
 
   // 텍스트 오버레이 설정
@@ -660,9 +664,10 @@ function App() {
 
   // 합쳐진 이미지 생성
   const createMergedImage = useCallback(() => {
+    const scale = getScale(mergeCanvasSize.width, mergeCanvasSize.height)
     const canvas = document.createElement('canvas')
-    canvas.width = mergeCanvasSize.width * upscale
-    canvas.height = mergeCanvasSize.height * upscale
+    canvas.width = Math.round(mergeCanvasSize.width * scale)
+    canvas.height = Math.round(mergeCanvasSize.height * scale)
     const ctx = canvas.getContext('2d')
 
     ctx.imageSmoothingEnabled = true
@@ -673,8 +678,8 @@ function App() {
     ctx.fillRect(0, 0, canvas.width, canvas.height)
 
     const scaledCellSize = {
-      width: cellSize.width * upscale,
-      height: cellSize.height * upscale
+      width: cellSize.width * scale,
+      height: cellSize.height * scale
     }
 
     // 각 셀 이미지 그리기
@@ -694,13 +699,13 @@ function App() {
           ctx.clip()
 
           const t = cellImage.transform
-          const scaledW = cellImage.originalSize.width * t.scale * upscale
-          const scaledH = cellImage.originalSize.height * t.scale * upscale
+          const scaledW = cellImage.originalSize.width * t.scale * scale
+          const scaledH = cellImage.originalSize.height * t.scale * scale
 
           ctx.drawImage(
             cellImage.image,
-            cellX + t.x * upscale,
-            cellY + t.y * upscale,
+            cellX + t.x * scale,
+            cellY + t.y * scale,
             scaledW,
             scaledH
           )
@@ -712,18 +717,18 @@ function App() {
 
     // 텍스트 오버레이 그리기
     mergeTextOverlays.forEach((text) => {
-      const fontSize = (text.fontSize || 12) * upscale
+      const fontSize = (text.fontSize || 12) * scale
       ctx.font = `${fontSize}px ${text.fontFamily}`
       ctx.textBaseline = 'bottom'
 
       if (text.hasStroke && text.strokeWidth > 0) {
         ctx.strokeStyle = text.strokeColor
-        ctx.lineWidth = text.strokeWidth * upscale
-        ctx.strokeText(text.content, text.x * upscale, text.y * upscale)
+        ctx.lineWidth = text.strokeWidth * scale
+        ctx.strokeText(text.content, text.x * scale, text.y * scale)
       }
 
       ctx.fillStyle = text.color
-      ctx.fillText(text.content, text.x * upscale, text.y * upscale)
+      ctx.fillText(text.content, text.x * scale, text.y * scale)
     })
 
     return canvas.toDataURL(`image/${outputFormat}`, 0.92)
@@ -2096,26 +2101,27 @@ function App() {
   // 업스케일된 이미지 생성 (다운로드용)
   const createUpscaledImage = (piece) => {
     const { sourceX, sourceY, finalX, finalY, finalW, finalH } = piece.sourceInfo
+    const scale = getScale(finalW, finalH)
 
     const canvas = document.createElement('canvas')
-    canvas.width = finalW * upscale
-    canvas.height = finalH * upscale
+    canvas.width = Math.round(finalW * scale)
+    canvas.height = Math.round(finalH * scale)
     const ctx = canvas.getContext('2d')
 
     ctx.imageSmoothingEnabled = true
     ctx.imageSmoothingQuality = 'high'
 
-    ctx.drawImage(image, sourceX + finalX, sourceY + finalY, finalW, finalH, 0, 0, finalW * upscale, finalH * upscale)
+    ctx.drawImage(image, sourceX + finalX, sourceY + finalY, finalW, finalH, 0, 0, canvas.width, canvas.height)
 
     // 텍스트 오버레이 그리기
     textOverlays.forEach((text) => {
-      const textX = (text.x - finalX) * upscale
-      const textY = (text.y - finalY) * upscale
-      const fontSize = (text.fontSize || 12) * upscale
+      const textX = (text.x - finalX) * scale
+      const textY = (text.y - finalY) * scale
+      const fontSize = (text.fontSize || 12) * scale
 
       ctx.save()
       ctx.beginPath()
-      ctx.rect(0, 0, finalW * upscale, finalH * upscale)
+      ctx.rect(0, 0, canvas.width, canvas.height)
       ctx.clip()
 
       ctx.font = `${fontSize}px ${text.fontFamily}`
@@ -2123,7 +2129,7 @@ function App() {
 
       if (text.hasStroke && text.strokeWidth > 0) {
         ctx.strokeStyle = text.strokeColor
-        ctx.lineWidth = text.strokeWidth * upscale
+        ctx.lineWidth = text.strokeWidth * scale
         ctx.strokeText(text.content, textX, textY)
       }
 
@@ -3167,13 +3173,13 @@ function App() {
                 <div className="upscale-control">
                   <span>{t.upscale}</span>
                   <div className="upscale-buttons">
-                    {[1, 2, 4].map(scale => (
+                    {['1080', '2k', '4k'].map(res => (
                       <button
-                        key={scale}
-                        className={`upscale-btn ${upscale === scale ? 'active' : ''}`}
-                        onClick={() => setUpscale(scale)}
+                        key={res}
+                        className={`upscale-btn ${upscale === res ? 'active' : ''}`}
+                        onClick={() => setUpscale(res)}
                       >
-                        {t[`upscale${scale}x`]}
+                        {t[`upscale${res}`]}
                       </button>
                     ))}
                   </div>
@@ -3465,13 +3471,13 @@ function App() {
                 <div className="upscale-control">
                   <span>{t.upscale}</span>
                   <div className="upscale-buttons">
-                    {[1, 2, 4].map(scale => (
+                    {['1080', '2k', '4k'].map(res => (
                       <button
-                        key={scale}
-                        className={`upscale-btn ${upscale === scale ? 'active' : ''}`}
-                        onClick={() => setUpscale(scale)}
+                        key={res}
+                        className={`upscale-btn ${upscale === res ? 'active' : ''}`}
+                        onClick={() => setUpscale(res)}
                       >
-                        {t[`upscale${scale}x`]}
+                        {t[`upscale${res}`]}
                       </button>
                     ))}
                   </div>
